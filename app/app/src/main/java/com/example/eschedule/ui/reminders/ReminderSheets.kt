@@ -2,6 +2,7 @@ package com.example.eschedule.ui.reminders
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,7 +24,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eschedule.R
+import com.example.eschedule.data.model.Reminder
+import com.example.eschedule.data.model.ReminderStatus
 import com.example.eschedule.theme.Spacing
 import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.components.FigmaSheet
@@ -56,73 +58,72 @@ import com.example.eschedule.ui.components.SheetSaveButton
 import com.example.eschedule.ui.components.SheetTextPlaceholder
 import com.example.eschedule.ui.components.SheetTextValue
 import com.example.eschedule.ui.components.SheetTitleField
-import java.util.Calendar
+import com.example.eschedule.ui.display
+import com.example.eschedule.ui.displayLong
+import com.example.eschedule.ui.relativeDay
+import java.time.LocalDate
+import java.time.LocalTime
 
 // ─── Add / Edit Reminder bottom sheet ────────────────────────────────────────
-//   Figma "Add Reminder" / "Edit Reminder":
-//   title row → title field (y+70) → "Options" (y+140) → options card 343 × 85 (y+163)
-//   → "Location" (y+268) → field → "Details" → field with 25dp bottom corners.
 
+/**
+ * Add ([initial] = null) or edit a reminder. Validates the form and hands a complete [Reminder]
+ * to [onSave]; persisting it is the caller's job.
+ */
 @Composable
 fun AddReminderSheet(
+    initial: Reminder?,
     onDismiss: () -> Unit,
-    onSave: (title: String) -> Unit,
-    initialTitle: String = "",
+    onSave: (Reminder) -> Unit,
     sheetTitle: String = "Add Reminder",
 ) {
     val context = LocalContext.current
-    var title by remember { mutableStateOf(initialTitle) }
 
-    // ── Date state ────────────────────────────────────────────────────────────
-    val cal = remember { Calendar.getInstance() }
-    var dateText by remember {
-        mutableStateOf(
-            "${monthName(cal.get(Calendar.MONTH))} ${cal.get(Calendar.DAY_OF_MONTH)}, ${cal.get(Calendar.YEAR)}"
+    var title by remember { mutableStateOf(initial?.title.orEmpty()) }
+    var date by remember { mutableStateOf(initial?.date ?: LocalDate.now()) }
+    // New reminders default to the next full hour with the time switched on.
+    var time by remember {
+        mutableStateOf(initial?.time ?: LocalTime.now().withMinute(0).withSecond(0).withNano(0).plusHours(1))
+    }
+    var timeEnabled by remember { mutableStateOf(initial == null || initial.time != null) }
+    var location by remember { mutableStateOf(initial?.location.orEmpty()) }
+    var notes by remember { mutableStateOf(initial?.notes.orEmpty()) }
+
+    fun pickDate() {
+        DatePickerDialog(
+            context,
+            { _, y, m, d -> date = LocalDate.of(y, m + 1, d) },
+            date.year, date.monthValue - 1, date.dayOfMonth,
+        ).show()
+    }
+
+    fun pickTime() {
+        TimePickerDialog(context, { _, h, m -> time = LocalTime.of(h, m) }, time.hour, time.minute, false).show()
+    }
+
+    fun trySave() {
+        if (title.isBlank()) {
+            Toast.makeText(context, "Give the reminder a title", Toast.LENGTH_SHORT).show()
+            return
+        }
+        onSave(
+            Reminder(
+                id = initial?.id ?: 0,
+                title = title,
+                date = date,
+                time = if (timeEnabled) time else null,
+                location = location,
+                notes = notes,
+                completed = initial?.completed ?: false,
+                wontDo = initial?.wontDo ?: false,
+                completedAt = initial?.completedAt,
+            )
         )
     }
-    var showDatePicker by remember { mutableStateOf(false) }
-    if (showDatePicker) {
-        LaunchedEffect(Unit) {
-            DatePickerDialog(
-                context,
-                { _, y, m, d ->
-                    dateText = "${monthName(m)} $d, $y"
-                    showDatePicker = false
-                },
-                cal.get(Calendar.YEAR),
-                cal.get(Calendar.MONTH),
-                cal.get(Calendar.DAY_OF_MONTH),
-            ).apply { setOnDismissListener { showDatePicker = false } }.show()
-        }
-    }
-
-    // ── Time state (the Figma frames show the time line + toggle together) ────
-    var timeText by remember { mutableStateOf("9:00 AM") }
-    var timeEnabled by remember { mutableStateOf(true) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    if (showTimePicker) {
-        LaunchedEffect(Unit) {
-            TimePickerDialog(
-                context,
-                { _, h, m ->
-                    val amPm = if (h < 12) "AM" else "PM"
-                    val h12  = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
-                    timeText = "$h12:${m.toString().padStart(2, '0')} $amPm"
-                    showTimePicker = false
-                },
-                cal.get(Calendar.HOUR_OF_DAY),
-                cal.get(Calendar.MINUTE),
-                false,
-            ).apply { setOnDismissListener { showTimePicker = false } }.show()
-        }
-    }
-
-    var locationText by remember { mutableStateOf("") }
-    var notesText    by remember { mutableStateOf("") }
 
     FigmaSheet(onDismiss = onDismiss) {
         SheetHeader(title = sheetTitle) {
-            SheetSaveButton(onClick = { onSave(title) })
+            SheetSaveButton(onClick = ::trySave)
         }
 
         SheetGap(Spacing.md)
@@ -133,7 +134,7 @@ fun AddReminderSheet(
         SheetGap(Spacing.sm)
         SheetCard {
             Column {
-                OptionRow("Date", dateText) { showDatePicker = true }
+                OptionRow("Date", date.displayLong(), ::pickDate)
                 OptionDivider()
 
                 // Time row: label (+ picker line while enabled) on the left, switch on the right
@@ -157,12 +158,13 @@ fun AddReminderSheet(
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
-                                    ) { showTimePicker = true }
+                                        onClick = ::pickTime,
+                                    )
                                     .padding(vertical = Spacing.xs),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
-                                    text = timeText,
+                                    text = time.display(),
                                     fontSize = 11.sp,
                                     lineHeight = 16.sp,
                                     color = FigmaTextMuted,
@@ -199,8 +201,8 @@ fun AddReminderSheet(
         SheetGap(Spacing.sm)
         SheetIconField(
             iconRes = R.drawable.ic_sheet_location,
-            value = locationText,
-            onValueChange = { locationText = it },
+            value = location,
+            onValueChange = { location = it },
             placeholder = "Add Location",
         )
 
@@ -209,8 +211,8 @@ fun AddReminderSheet(
         SheetGap(Spacing.sm)
         SheetIconField(
             iconRes = R.drawable.ic_sheet_pencil,
-            value = notesText,
-            onValueChange = { notesText = it },
+            value = notes,
+            onValueChange = { notes = it },
             placeholder = "Notes",
             bottomRadius = 24.dp,
         )
@@ -218,15 +220,16 @@ fun AddReminderSheet(
 }
 
 // ─── View Reminder (read-only) bottom sheet ──────────────────────────────────
-//   Figma "View Reminder": 20dp checkbox + 20dp SemiBold title, Poppins Light detail lines.
 
 @Composable
 fun ViewReminderSheet(
-    reminderId: String,
+    reminder: Reminder,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val today = remember { LocalDate.now() }
+
     FigmaSheet(onDismiss = onDismiss) {
         SheetHeader(title = "Details") {
             SheetCircleAction(R.drawable.ic_sheet_delete, "Delete", onDelete)
@@ -247,50 +250,51 @@ fun ViewReminderSheet(
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Pag laba",
+                    text = reminder.title,
                     fontSize = 20.sp,
                     lineHeight = 30.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = SheetTextValue,
                 )
                 Spacer(Modifier.height(Spacing.xs))
-                Text(
-                    text = "Today",
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Light,
-                    color = FigmaTextMuted,
-                )
-                Text(
-                    text = "12:51 PM",
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Light,
-                    color = FigmaTextMuted,
-                )
+                DetailLine(relativeDay(reminder.date, today))
+                DetailLine(reminder.time?.display() ?: "All day")
+                when (reminder.status) {
+                    ReminderStatus.Done -> DetailLine("Completed")
+                    ReminderStatus.WontDo -> DetailLine("Won\u2019t do")
+                    ReminderStatus.Open -> Unit
+                }
             }
         }
 
         SheetGap(Spacing.lg)
         SheetLabel("Location")
         SheetGap(Spacing.sm)
-        SheetIconText(R.drawable.ic_sheet_location, "Location", SheetTextPlaceholder)
+        SheetIconText(
+            iconRes = R.drawable.ic_sheet_location,
+            text = reminder.location.ifBlank { "No location" },
+            textColor = if (reminder.location.isBlank()) SheetTextPlaceholder else SheetTextValue,
+        )
 
         SheetGap(Spacing.lg)
         SheetLabel("Details")
         SheetGap(Spacing.sm)
         SheetIconText(
             iconRes = R.drawable.ic_sheet_pencil,
-            text = "Notes",
-            textColor = SheetTextPlaceholder,
+            text = reminder.notes.ifBlank { "No notes" },
+            textColor = if (reminder.notes.isBlank()) SheetTextPlaceholder else SheetTextValue,
             bottomRadius = 24.dp,
         )
     }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-private fun monthName(month: Int): String = listOf(
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December",
-)[month]
+@Composable
+private fun DetailLine(text: String) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.Light,
+        color = FigmaTextMuted,
+    )
+}

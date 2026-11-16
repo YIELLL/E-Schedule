@@ -1,141 +1,207 @@
 package com.example.eschedule.ui.home
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.eschedule.data.model.ReminderStatus
 import com.example.eschedule.theme.Spacing
+import com.example.eschedule.theme.UepBlue
+import com.example.eschedule.ui.HomeUiState
+import com.example.eschedule.ui.components.AnimatedReminderRow
 import com.example.eschedule.ui.components.CardRadius
 import com.example.eschedule.ui.components.ClassCard
-import com.example.eschedule.ui.components.ClassCardData
+import com.example.eschedule.ui.components.EmptyAction
+import com.example.eschedule.ui.components.EmptyArt
+import com.example.eschedule.ui.components.EmptyCard
+import com.example.eschedule.ui.components.EmptyState
+import com.example.eschedule.ui.components.LocalAnimateRowEnter
 import com.example.eschedule.ui.components.PageTitle
-import com.example.eschedule.ui.components.ReminderItemData
-import com.example.eschedule.ui.components.ReminderListItem
+import com.example.eschedule.ui.components.RowSide
 import com.example.eschedule.ui.components.ScreenMargin
 import com.example.eschedule.ui.components.SectionHeader
 import com.example.eschedule.ui.components.appShadow
 
 @Composable
 fun HomeScreen(
-    onClassClick: (String) -> Unit,
-    onReminderMoreClick: (String) -> Unit,
+    state: HomeUiState,
+    onClassClick: (Long) -> Unit,
+    onReminderMoreClick: (Long) -> Unit,
+    onReminderStatusChange: (Long, ReminderStatus) -> Unit,
+    onSeeAllReminders: () -> Unit,
+    onAddClass: () -> Unit,
+    onScan: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val currentClass = remember {
-        ClassCardData(
-            id = "it102",
-            title = "IT102 - Mobile Application Development",
-            timeRange = "8:00 AM - 9:00 AM",
-            location = "CSFLD22",
-        )
+    // Rows only animate in once the first data has been shown (not on every tab visit).
+    var settled by remember { mutableStateOf(false) }
+    LaunchedEffect(state.loaded) {
+        if (state.loaded) {
+            withFrameNanos { }
+            settled = true
+        }
     }
-    val upcomingClasses = remember {
-        listOf(
-            ClassCardData(
-                id = "sia101",
-                title = "SIA101 - System Integration and Architecture",
-                timeRange = "10:00 AM - 1:00 PM",
-                location = "L4",
-            ),
-            ClassCardData(
-                id = "net102",
-                title = "NET102 - Networking 2",
-                timeRange = "2:00 PM - 3:00 PM",
-                location = "CSFLD22",
-            ),
-            ClassCardData(
-                id = "its101",
-                title = "ITS101 - IT Service Management",
-                timeRange = "3:00 PM - 5:00 PM",
-                location = "ACAD LAB 2",
-            ),
-        )
-    }
-    val reminders = remember {
-        listOf(
-            ReminderItemData(id = "r1", title = "Pag laba",           dueLabel = "12:51 PM"),
-            ReminderItemData(id = "r2", title = "Do app dev project", dueLabel = "Tomorrow"),
-            ReminderItemData(id = "r3", title = "Make journal",        dueLabel = "Sep 21"),
-            ReminderItemData(id = "r4", title = "Assassinate Jons",   dueLabel = "Dec 17"),
-        )
-    }
-    var checkedIds by remember { mutableStateOf(setOf<String>()) }
 
-    // Outer Column: title is fixed (never scrolls), content scrolls below it
-    Column(modifier = modifier.fillMaxSize()) {
+    CompositionLocalProvider(LocalAnimateRowEnter provides settled) {
+        // Outer Column: title is fixed (never scrolls), content scrolls below it
+        Column(modifier = modifier.fillMaxSize()) {
 
-        PageTitle(title = "Dashboard")
+            PageTitle(title = "Dashboard")
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = ScreenMargin),
-        ) {
-            // ── Current class
-            SectionHeader(title = "Current Class", fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(Spacing.sm))
-            ClassCard(
-                data = currentClass,
-                onClick = { onClassClick(currentClass.id) },
-            )
+            if (!state.loaded) return@Column
 
-            Spacer(Modifier.height(Spacing.lg))
-
-            // ── Upcoming classes — a plain list of cards
-            SectionHeader(title = "Upcoming Classes")
-            Spacer(Modifier.height(Spacing.sm))
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                upcomingClasses.forEach { cls ->
-                    ClassCard(
-                        data = cls,
-                        onClick = { onClassClick(cls.id) },
-                    )
-                }
+            if (state.isBlank) {
+                EmptyState(
+                    art = EmptyArt.Calendar,
+                    title = "It looks empty here",
+                    message = "Add your classes and your day will show up on this page.",
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(bottom = 96.dp),
+                    actions = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            EmptyAction("Add a class", onClick = onAddClass)
+                            EmptyAction("Scan schedule", onClick = onScan, primary = false)
+                        }
+                    },
+                )
+                return@Column
             }
 
-            Spacer(Modifier.height(Spacing.lg))
-
-            // ── Reminders
-            SectionHeader(title = "Reminders")
-            Spacer(Modifier.height(Spacing.sm))
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .appShadow(cornerRadius = CardRadius)
-                    .background(Color.White, RoundedCornerShape(CardRadius))
-                    .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = ScreenMargin),
             ) {
-                reminders.forEach { reminder ->
-                    ReminderListItem(
-                        data = reminder.copy(isCompleted = checkedIds.contains(reminder.id)),
-                        onCheckedChange = { checked ->
-                            checkedIds = if (checked) checkedIds + reminder.id
-                            else checkedIds - reminder.id
-                        },
-                        onMoreClick = { onReminderMoreClick(reminder.id) },
-                    )
+                // ── Current class
+                SectionHeader(title = "Current Class", fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(Spacing.sm))
+                Column(modifier = Modifier.animateContentSize()) {
+                    val current = state.currentClass
+                    if (current != null) {
+                        ClassCard(data = current, onClick = { onClassClick(current.id) })
+                    } else {
+                        EmptyCard(
+                            title = "No class right now",
+                            message = if (state.hasAnyClasses) "Enjoy the break — nothing is in session."
+                            else "Add your classes to see what's on now.",
+                            art = EmptyArt.Calendar,
+                        )
+                    }
                 }
-            }
 
-            // Clear the floating nav bar
-            Spacer(Modifier.height(140.dp))
+                Spacer(Modifier.height(Spacing.lg))
+
+                // ── Upcoming classes (the rest of today only)
+                SectionHeader(title = "Upcoming Classes")
+                Spacer(Modifier.height(Spacing.sm))
+                Column(
+                    modifier = Modifier.animateContentSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (state.upcomingClasses.isEmpty()) {
+                        EmptyCard(
+                            title = "No more classes today",
+                            message = if (state.hasAnyClasses) "You're done for the day. Time to relax!"
+                            else "Your next classes will show up here.",
+                            art = EmptyArt.Calendar,
+                        )
+                    } else {
+                        state.upcomingClasses.forEach { cls ->
+                            ClassCard(data = cls, onClick = { onClassClick(cls.id) })
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(Spacing.lg))
+
+                // ── Reminders (nearest first)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SectionHeader(title = "Reminders", modifier = Modifier.weight(1f))
+                    if (state.moreReminders > 0) {
+                        Text(
+                            text = "See all",
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = UepBlue,
+                            modifier = Modifier
+                                .heightIn(min = 32.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = onSeeAllReminders,
+                                )
+                                .padding(vertical = 6.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(Spacing.sm))
+                Column(modifier = Modifier.animateContentSize()) {
+                    if (state.reminders.isEmpty()) {
+                        EmptyCard(
+                            title = "You're all caught up",
+                            message = "No pending reminders. Nice work!",
+                            art = EmptyArt.Reminders,
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .appShadow(cornerRadius = CardRadius)
+                                .background(Color.White, RoundedCornerShape(CardRadius))
+                                .clip(RoundedCornerShape(CardRadius))
+                                .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+                        ) {
+                            state.reminders.forEach { reminder ->
+                                key(reminder.id) {
+                                    AnimatedReminderRow(
+                                        data = reminder,
+                                        enterSide = RowSide.Left,
+                                        exitSide = RowSide.Left,
+                                        onCommit = { status -> onReminderStatusChange(reminder.id, status) },
+                                        onMoreClick = { onReminderMoreClick(reminder.id) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Clear the floating nav bar
+                Spacer(Modifier.height(140.dp))
+            }
         }
     }
 }

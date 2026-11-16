@@ -48,6 +48,8 @@ import com.example.eschedule.theme.AppBackground
 import com.example.eschedule.theme.Spacing
 import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.components.CardRadius
+import com.example.eschedule.ui.components.EmptyArt
+import com.example.eschedule.ui.components.EmptyState
 import com.example.eschedule.ui.components.FigmaTextMuted
 import com.example.eschedule.ui.components.ScreenMargin
 import com.example.eschedule.ui.components.SheetSaveButton
@@ -122,16 +124,14 @@ fun ReviewScanScreen(
         }
 
         if (items.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "No classes were found in this photo.\nClose and try scanning again.",
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    color = FigmaTextMuted,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = Spacing.xl),
-                )
-            }
+            EmptyState(
+                art = EmptyArt.Inbox,
+                title = "Nothing found",
+                message = "We couldn't find any classes in this photo. Close this screen and try scanning again.",
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),

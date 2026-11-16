@@ -1,5 +1,6 @@
 package com.example.eschedule.ui.reminders
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -16,168 +17,222 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eschedule.data.model.ReminderStatus
 import com.example.eschedule.theme.Spacing
+import com.example.eschedule.ui.ReminderFilter
+import com.example.eschedule.ui.RemindersUiState
+import com.example.eschedule.ui.components.AnimatedReminderRow
 import com.example.eschedule.ui.components.CardRadius
 import com.example.eschedule.ui.components.EScheduleFab
+import com.example.eschedule.ui.components.EmptyArt
+import com.example.eschedule.ui.components.EmptyCard
+import com.example.eschedule.ui.components.EmptyState
 import com.example.eschedule.ui.components.FilterChip
+import com.example.eschedule.ui.components.LocalAnimateRowEnter
 import com.example.eschedule.ui.components.PageTitle
-import com.example.eschedule.ui.components.ReminderItemData
-import com.example.eschedule.ui.components.ReminderListItem
+import com.example.eschedule.ui.components.RowSide
 import com.example.eschedule.ui.components.ScreenMargin
 import com.example.eschedule.ui.components.appShadow
-
-private val FILTERS = listOf("All", "Today", "Week", "Month", "Completed")
 
 /** Figma: completed due-dates are UEP blue @ 60%. */
 private val CompletedDueColor = Color(0x9917376E)
 
 @Composable
 fun RemindersScreen(
+    state: RemindersUiState,
+    onFilterChange: (ReminderFilter) -> Unit,
+    onStatusChange: (Long, ReminderStatus) -> Unit,
+    onReminderMoreClick: (Long) -> Unit,
     onAddReminder: () -> Unit,
-    onReminderMoreClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val activeReminders = remember {
-        listOf(
-            ReminderItemData("r1", "Pag laba", "12:51 PM"),
-            ReminderItemData("r2", "Do app dev project", "Tomorrow"),
-            ReminderItemData("r3", "Make journal", "Sep 21"),
-            ReminderItemData("r4", "Assassinate Jons", "Dec 17"),
-        )
-    }
-    val completedReminders = remember {
-        listOf(
-            ReminderItemData("c1",  "Voiceover",          "10/18/24", isCompleted = true),
-            ReminderItemData("c2",  "First Aid Video",    "10/16/24", isCompleted = true),
-            ReminderItemData("c3",  "Tree planting",      "10/16/24", isCompleted = true),
-            ReminderItemData("c4",  "Upaya im intro",     "10/9/24",  isCompleted = true),
-            ReminderItemData("c5",  "NSTP",               "10/2/24",  isCompleted = true),
-            ReminderItemData("c6",  "Intro",              "10/2/24",  isCompleted = true),
-            ReminderItemData("c7",  "Comprog",            "9/25/24",  isCompleted = true),
-            ReminderItemData("c8",  "Assignment sa NSTP", "9/18/24",  isCompleted = true),
-            ReminderItemData("c9",  "Edit vid",           "9/2/24",   isCompleted = true),
-            ReminderItemData("c10", "PerDev",             "11/21/23", isCompleted = true),
-            ReminderItemData("c11", "Sex kit nigga",      "11/21/23", isCompleted = true),
-        )
+    // Rows only animate in once the first data has been shown (not on every tab visit).
+    var settled by remember { mutableStateOf(false) }
+    LaunchedEffect(state.loaded) {
+        if (state.loaded) {
+            withFrameNanos { }
+            settled = true
+        }
     }
 
-    var selectedFilter by remember { mutableStateOf("All") }
-    var checkedIds by remember { mutableStateOf(setOf<String>()) }
+    CompositionLocalProvider(LocalAnimateRowEnter provides settled) {
+        Box(modifier = modifier.fillMaxSize()) {
+            // Outer Column: title fixed, content scrolls
+            Column(modifier = Modifier.fillMaxSize()) {
 
-    Box(modifier = modifier.fillMaxSize()) {
-        // Outer Column: title fixed, content scrolls
-        Column(modifier = Modifier.fillMaxSize()) {
+                PageTitle(title = "Reminders")
 
-            // ── Title (x 30, y 100); chips start 20dp below at y 150
-            PageTitle(title = "Reminders")
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                // Filter chips: 25dp tall, 10dp apart, x starts at 30
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = ScreenMargin),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                ) {
-                    FILTERS.forEach { filter ->
-                        FilterChip(
-                            label = filter,
-                            selected = selectedFilter == filter,
-                            onClick = { selectedFilter = filter },
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(Spacing.md))
-
-                // ── Active reminders card: 48dp rows
-                Column(
-                    modifier = Modifier
-                        .padding(horizontal = ScreenMargin)
-                        .fillMaxWidth()
-                        .appShadow(cornerRadius = CardRadius)
-                        .background(Color.White, RoundedCornerShape(CardRadius))
-                        .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
-                ) {
-                    activeReminders.forEach { reminder ->
-                        ReminderListItem(
-                            data = reminder.copy(isCompleted = checkedIds.contains(reminder.id)),
-                            onCheckedChange = { checked ->
-                                checkedIds = if (checked) checkedIds + reminder.id
-                                else checkedIds - reminder.id
-                            },
-                            onMoreClick = { onReminderMoreClick(reminder.id) },
-                        )
-                    }
-                }
-
-                // ── Completed card (y 331): title + rows 15dp apart, washed out with a
-                // white @ 75% "Fade" layer that covers the whole card.
-                if (selectedFilter == "All" || selectedFilter == "Completed") {
-                    Spacer(Modifier.height(Spacing.lg))
+                if (state.loaded && !state.hasAny) {
+                    // Nothing at all yet: a friendly full-page placeholder instead of an empty list.
+                    EmptyState(
+                        art = EmptyArt.Inbox,
+                        title = "No reminders yet",
+                        message = "Tap + to add your first one — long-press a checkbox to mark it “won’t do”.",
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(bottom = 96.dp),
+                    )
+                } else {
                     Column(
                         modifier = Modifier
-                            .padding(horizontal = ScreenMargin)
-                            .fillMaxWidth()
-                            .appShadow(cornerRadius = CardRadius)
-                            .background(Color.White, RoundedCornerShape(CardRadius))
-                            .drawWithContent {
-                                drawContent()
-                                drawRoundRect(
-                                    color = Color(0xBFFFFFFF),
-                                    cornerRadius = CornerRadius(CardRadius.toPx()),
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        // Filter chips: 36dp tall, 8dp apart
+                        Row(
+                            modifier = Modifier
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = ScreenMargin),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        ) {
+                            ReminderFilter.entries.forEach { filter ->
+                                FilterChip(
+                                    label = filter.label,
+                                    selected = state.filter == filter,
+                                    onClick = { onFilterChange(filter) },
                                 )
                             }
-                            .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
-                    ) {
-                        Text(
-                            text = "Completed & Won’t Do",
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            modifier = Modifier.padding(start = Spacing.sm, top = Spacing.sm, bottom = Spacing.xs),
-                        )
-                        completedReminders.forEach { reminder ->
-                            ReminderListItem(
-                                data = reminder.copy(isCompleted = false),
-                                onCheckedChange = {},
-                                onMoreClick = { onReminderMoreClick(reminder.id) },
-                                showMoreButton = false,
-                                dueColor = CompletedDueColor,
-                                minHeight = 44.dp,
-                            )
                         }
+
+                        Spacer(Modifier.height(Spacing.md))
+
+                        if (state.loaded) {
+                            // ── Open reminders
+                            if (state.showActive) {
+                                Column(
+                                    modifier = Modifier
+                                        .padding(horizontal = ScreenMargin)
+                                        .animateContentSize(),
+                                ) {
+                                    if (state.active.isEmpty()) {
+                                        ActiveEmpty(state.filter)
+                                    } else {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .appShadow(cornerRadius = CardRadius)
+                                                .background(Color.White, RoundedCornerShape(CardRadius))
+                                                .clip(RoundedCornerShape(CardRadius))
+                                                .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+                                        ) {
+                                            state.active.forEach { reminder ->
+                                                key(reminder.id) {
+                                                    AnimatedReminderRow(
+                                                        data = reminder,
+                                                        enterSide = RowSide.Left,
+                                                        exitSide = RowSide.Left,
+                                                        onCommit = { status -> onStatusChange(reminder.id, status) },
+                                                        onMoreClick = { onReminderMoreClick(reminder.id) },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // ── Completed & won't do: washed out with a white @ 75% layer; tap a box to reopen.
+                            if (state.showCompleted) {
+                                Column(
+                                    modifier = Modifier
+                                        .padding(horizontal = ScreenMargin)
+                                        .animateContentSize(),
+                                ) {
+                                    if (state.completed.isEmpty()) {
+                                        if (state.filter == ReminderFilter.Completed) {
+                                            EmptyCard(
+                                                title = "Nothing completed yet",
+                                                message = "Reminders you finish or drop will be kept here.",
+                                                art = EmptyArt.Inbox,
+                                            )
+                                        }
+                                    } else {
+                                        if (state.showActive) Spacer(Modifier.height(Spacing.lg))
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .appShadow(cornerRadius = CardRadius)
+                                                .background(Color.White, RoundedCornerShape(CardRadius))
+                                                .clip(RoundedCornerShape(CardRadius))
+                                                .drawWithContent {
+                                                    drawContent()
+                                                    drawRoundRect(
+                                                        color = Color(0xBFFFFFFF),
+                                                        cornerRadius = CornerRadius(CardRadius.toPx()),
+                                                    )
+                                                }
+                                                .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+                                        ) {
+                                            Text(
+                                                text = "Completed & Won’t Do",
+                                                fontSize = 12.sp,
+                                                lineHeight = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Black,
+                                                modifier = Modifier.padding(start = Spacing.sm, top = Spacing.sm, bottom = Spacing.xs),
+                                            )
+                                            state.completed.forEach { reminder ->
+                                                key(reminder.id) {
+                                                    AnimatedReminderRow(
+                                                        data = reminder,
+                                                        enterSide = RowSide.Right,
+                                                        exitSide = RowSide.Right,
+                                                        onCommit = { status -> onStatusChange(reminder.id, status) },
+                                                        onMoreClick = { onReminderMoreClick(reminder.id) },
+                                                        showMoreButton = false,
+                                                        dueColor = CompletedDueColor,
+                                                        minHeight = 44.dp,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Clear the floating "+" button and the nav bar
+                        Spacer(Modifier.height(140.dp))
                     }
                 }
-
-                // Clear the floating "+" button and the nav bar
-                Spacer(Modifier.height(140.dp))
             }
-        }
 
-        // ── FAB: 50 × 50 at x 336, y 721 (16dp from the right edge)
-        EScheduleFab(
-            onClick = onAddReminder,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = Spacing.lg, bottom = 104.dp),
-        )
+            // ── FAB: 56dp, 24dp from the right edge, 16dp above the nav pill
+            EScheduleFab(
+                onClick = onAddReminder,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = Spacing.lg, bottom = 104.dp),
+            )
+        }
+    }
+}
+
+/** Compact placeholder for an empty list of open reminders, worded for the active filter. */
+@Composable
+private fun ActiveEmpty(filter: ReminderFilter) {
+    when (filter) {
+        ReminderFilter.Today -> EmptyCard("Nothing due today", "Enjoy the free time.", EmptyArt.Reminders)
+        ReminderFilter.Week -> EmptyCard("Nothing due this week", "You're all clear for now.", EmptyArt.Reminders)
+        ReminderFilter.Month -> EmptyCard("Nothing due this month", "You're all clear for now.", EmptyArt.Reminders)
+        else -> EmptyCard("You're all caught up", "No pending reminders. Nice work!", EmptyArt.Reminders)
     }
 }

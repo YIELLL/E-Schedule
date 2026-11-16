@@ -2,11 +2,14 @@ package com.example.eschedule.ui.classes
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,12 +19,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eschedule.R
+import com.example.eschedule.data.model.SchoolClass
 import com.example.eschedule.theme.Spacing
 import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.components.FigmaSheet
@@ -49,87 +50,96 @@ import com.example.eschedule.ui.components.SheetIconField
 import com.example.eschedule.ui.components.SheetIconText
 import com.example.eschedule.ui.components.SheetLabel
 import com.example.eschedule.ui.components.SheetSaveButton
+import com.example.eschedule.ui.components.SheetTextPlaceholder
 import com.example.eschedule.ui.components.SheetTextValue
 import com.example.eschedule.ui.components.SheetTitleField
-import java.util.Calendar
+import com.example.eschedule.ui.dateRange
+import com.example.eschedule.ui.display
+import com.example.eschedule.ui.displayLong
+import com.example.eschedule.ui.repeatsLabel
+import com.example.eschedule.ui.timeRange
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.LocalTime
 
-private val DAY_LABELS = listOf("S", "M", "T", "W", "Th", "F", "S")
+/** Chip order + labels for the Repeat row (week starts on Sunday, as in the design). */
+private val DAY_CHIPS = listOf(
+    DayOfWeek.SUNDAY to "S",
+    DayOfWeek.MONDAY to "M",
+    DayOfWeek.TUESDAY to "T",
+    DayOfWeek.WEDNESDAY to "W",
+    DayOfWeek.THURSDAY to "Th",
+    DayOfWeek.FRIDAY to "F",
+    DayOfWeek.SATURDAY to "S",
+)
 
 // ─── Add / Edit Class bottom sheet ───────────────────────────────────────────
-//   Figma "Add Class" / "Edit Class - Calendar" / "Edit Class - Scan" (all identical layout):
-//   title row → title field (y+70) → "Options" (y+140) → options card 343 × 236 (y+163)
-//   → "Location" (y+419) → field (y+442) → "Description / Additional Information" (y+502)
-//   → field with 25dp bottom corners (y+525).
 
+/**
+ * Add ([initial] = null) or edit a class. The sheet validates the form and hands a complete
+ * [SchoolClass] to [onSave]; persisting it is the caller's job.
+ */
 @Composable
 fun ClassSheet(
     sheetTitle: String,
-    initialTitle: String = "",
-    initialSelectedDays: Set<Int> = emptySet(),
+    initial: SchoolClass?,
     onDismiss: () -> Unit,
-    onSave: (title: String, selectedDays: Set<Int>) -> Unit,
+    onSave: (SchoolClass) -> Unit,
 ) {
     val context = LocalContext.current
-    var title by remember { mutableStateOf(initialTitle) }
-    var selectedDays by remember { mutableStateOf(initialSelectedDays) }
+    val today = remember { LocalDate.now() }
 
-    // ── Date pickers ─────────────────────────────────────────────────────────
-    val cal = remember { Calendar.getInstance() }
-    var fromText by remember { mutableStateOf("August 1, 2026") }
-    var untilText by remember { mutableStateOf("December 17, 2026") }
-    var showFromPicker  by remember { mutableStateOf(false) }
-    var showUntilPicker by remember { mutableStateOf(false) }
+    var title by remember { mutableStateOf(initial?.title.orEmpty()) }
+    var startTime by remember { mutableStateOf(initial?.startTime ?: LocalTime.of(7, 0)) }
+    var endTime by remember { mutableStateOf(initial?.endTime ?: LocalTime.of(9, 0)) }
+    var fromDate by remember { mutableStateOf(initial?.startDate ?: today) }
+    var untilDate by remember { mutableStateOf(initial?.endDate ?: today.plusMonths(4)) }
+    var days by remember { mutableStateOf(initial?.days ?: emptySet()) }
+    var location by remember { mutableStateOf(initial?.location.orEmpty()) }
+    var description by remember { mutableStateOf(initial?.description.orEmpty()) }
 
-    if (showFromPicker) {
-        LaunchedEffect(Unit) {
-            DatePickerDialog(
-                context,
-                { _, y, m, d -> fromText = "${monthName(m)} $d, $y"; showFromPicker = false },
-                cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH),
-            ).apply { setOnDismissListener { showFromPicker = false } }.show()
-        }
-    }
-    if (showUntilPicker) {
-        LaunchedEffect(Unit) {
-            DatePickerDialog(
-                context,
-                { _, y, m, d -> untilText = "${monthName(m)} $d, $y"; showUntilPicker = false },
-                cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH),
-            ).apply { setOnDismissListener { showUntilPicker = false } }.show()
-        }
+    fun pickTime(current: LocalTime, onPicked: (LocalTime) -> Unit) {
+        TimePickerDialog(context, { _, h, m -> onPicked(LocalTime.of(h, m)) }, current.hour, current.minute, false).show()
     }
 
-    // ── Time pickers ─────────────────────────────────────────────────────────
-    var startsText by remember { mutableStateOf(if (initialTitle.isEmpty()) "7:00 AM" else "8:00 AM") }
-    var endsText   by remember { mutableStateOf("9:00 AM") }
-    var showStartsPicker by remember { mutableStateOf(false) }
-    var showEndsPicker   by remember { mutableStateOf(false) }
-
-    if (showStartsPicker) {
-        LaunchedEffect(Unit) {
-            TimePickerDialog(
-                context,
-                { _, h, m -> startsText = formatTime(h, m); showStartsPicker = false },
-                7, 0, false,
-            ).apply { setOnDismissListener { showStartsPicker = false } }.show()
-        }
-    }
-    if (showEndsPicker) {
-        LaunchedEffect(Unit) {
-            TimePickerDialog(
-                context,
-                { _, h, m -> endsText = formatTime(h, m); showEndsPicker = false },
-                9, 0, false,
-            ).apply { setOnDismissListener { showEndsPicker = false } }.show()
-        }
+    fun pickDate(current: LocalDate, onPicked: (LocalDate) -> Unit) {
+        DatePickerDialog(
+            context,
+            { _, y, m, d -> onPicked(LocalDate.of(y, m + 1, d)) },
+            current.year, current.monthValue - 1, current.dayOfMonth,
+        ).show()
     }
 
-    var locationText by remember { mutableStateOf("") }
-    var descText     by remember { mutableStateOf("") }
+    fun trySave() {
+        val error = when {
+            title.isBlank() -> "Give the class a title"
+            !endTime.isAfter(startTime) -> "The end time must be after the start time"
+            days.isEmpty() -> "Pick at least one day it repeats on"
+            untilDate.isBefore(fromDate) -> "\"Until\" must be on or after \"From\""
+            else -> null
+        }
+        if (error != null) {
+            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+            return
+        }
+        onSave(
+            SchoolClass(
+                id = initial?.id ?: 0,
+                title = title,
+                startTime = startTime,
+                endTime = endTime,
+                startDate = fromDate,
+                endDate = untilDate,
+                days = days,
+                location = location,
+                description = description,
+            )
+        )
+    }
 
     FigmaSheet(onDismiss = onDismiss) {
         SheetHeader(title = sheetTitle) {
-            SheetSaveButton(onClick = { onSave(title, selectedDays) })
+            SheetSaveButton(onClick = ::trySave)
         }
 
         SheetGap(Spacing.md)
@@ -140,13 +150,13 @@ fun ClassSheet(
         SheetGap(Spacing.sm)
         SheetCard {
             Column {
-                OptionRow("Starts", startsText) { showStartsPicker = true }
+                OptionRow("Starts", startTime.display()) { pickTime(startTime) { startTime = it } }
                 OptionDivider()
-                OptionRow("Ends", endsText) { showEndsPicker = true }
+                OptionRow("Ends", endTime.display()) { pickTime(endTime) { endTime = it } }
                 OptionDivider()
-                OptionRow("From", fromText) { showFromPicker = true }
+                OptionRow("From", fromDate.displayLong()) { pickDate(fromDate) { fromDate = it } }
                 OptionDivider()
-                OptionRow("Until", untilText) { showUntilPicker = true }
+                OptionRow("Until", untilDate.displayLong()) { pickDate(untilDate) { untilDate = it } }
                 OptionDivider()
 
                 Text(
@@ -162,15 +172,12 @@ fun ClassSheet(
                         .padding(horizontal = Spacing.md, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    DAY_LABELS.forEachIndexed { index, label ->
-                        val isSelected = selectedDays.contains(index)
+                    DAY_CHIPS.forEach { (day, label) ->
+                        val isSelected = day in days
                         DayChip(
                             label = label,
                             selected = isSelected,
-                            onClick = {
-                                selectedDays = if (isSelected) selectedDays - index
-                                else selectedDays + index
-                            },
+                            onClick = { days = if (isSelected) days - day else days + day },
                         )
                     }
                 }
@@ -183,8 +190,8 @@ fun ClassSheet(
         SheetGap(Spacing.sm)
         SheetIconField(
             iconRes = R.drawable.ic_sheet_location,
-            value = locationText,
-            onValueChange = { locationText = it },
+            value = location,
+            onValueChange = { location = it },
             placeholder = "Add Location",
         )
 
@@ -193,8 +200,8 @@ fun ClassSheet(
         SheetGap(Spacing.sm)
         SheetIconField(
             iconRes = R.drawable.ic_sheet_pencil,
-            value = descText,
-            onValueChange = { descText = it },
+            value = description,
+            onValueChange = { description = it },
             placeholder = "Description",
             bottomRadius = 24.dp,
         )
@@ -202,11 +209,10 @@ fun ClassSheet(
 }
 
 // ─── View Class bottom sheet ─────────────────────────────────────────────────
-//   Figma "View Class - Calendar" / "View Class - Scan".
 
 @Composable
 fun ViewClassSheet(
-    classId: String,
+    cls: SchoolClass,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -219,7 +225,7 @@ fun ViewClassSheet(
         }
 
         SheetGap(Spacing.md)
-        // Accent bar (4 × content − 5) beside the 20dp title and two Poppins Light detail lines
+        // Accent bar beside the title and the Poppins Light detail lines
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             Box(
                 modifier = Modifier
@@ -231,48 +237,52 @@ fun ViewClassSheet(
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "IT102 - Mobile App Development",
+                    text = cls.title,
                     fontSize = 20.sp,
                     lineHeight = 30.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = SheetTextValue,
                 )
                 Spacer(Modifier.height(5.dp))
-                Text(
-                    text = "Repeats every Tuesday & Thursday",
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Light,
-                    color = FigmaTextMuted,
-                )
-                Text(
-                    text = "8:00 AM - 9:00 AM",
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Light,
-                    color = FigmaTextMuted,
-                )
+                DetailLine(repeatsLabel(cls.days))
+                DetailLine(timeRange(cls.startTime, cls.endTime))
+                DetailLine(dateRange(cls.startDate, cls.endDate))
             }
         }
 
         SheetGap(Spacing.lg)
         SheetLabel("Location")
         SheetGap(Spacing.sm)
-        SheetIconText(R.drawable.ic_sheet_location, "CSFLD 22", SheetTextValue)
+        SheetIconText(
+            iconRes = R.drawable.ic_sheet_location,
+            text = cls.location.ifBlank { "No location" },
+            textColor = if (cls.location.isBlank()) SheetTextPlaceholder else SheetTextValue,
+        )
 
         SheetGap(Spacing.lg)
         SheetLabel("Description / Additional Information")
         SheetGap(Spacing.sm)
         SheetIconText(
             iconRes = R.drawable.ic_sheet_pencil,
-            text = "Class ID: 0012764, Instructor: B.PTL2",
-            textColor = SheetTextValue,
+            text = cls.description.ifBlank { "No description" },
+            textColor = if (cls.description.isBlank()) SheetTextPlaceholder else SheetTextValue,
             bottomRadius = 24.dp,
         )
     }
 }
 
 // ─── Private helpers ─────────────────────────────────────────────────────────
+
+@Composable
+private fun DetailLine(text: String) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.Light,
+        color = FigmaTextMuted,
+    )
+}
 
 /** 36dp day chip (touch-friendly): Poppins Bold 14, white-on-blue when selected. */
 @Composable
@@ -302,15 +312,4 @@ private fun DayChip(label: String, selected: Boolean, onClick: () -> Unit) {
             color = if (selected) Color.White else FigmaTextMuted,
         )
     }
-}
-
-private fun monthName(month: Int): String = listOf(
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December",
-)[month]
-
-private fun formatTime(h: Int, m: Int): String {
-    val amPm = if (h < 12) "AM" else "PM"
-    val h12  = when { h == 0 -> 12; h > 12 -> h - 12; else -> h }
-    return "$h12:${m.toString().padStart(2, '0')} $amPm"
 }

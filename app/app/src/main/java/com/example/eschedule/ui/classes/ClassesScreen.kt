@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animate
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -32,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,15 +57,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eschedule.R
+import com.example.eschedule.data.minuteTicker
 import com.example.eschedule.theme.ClassCyan
 import com.example.eschedule.theme.Spacing
 import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.components.EScheduleFab
+import com.example.eschedule.ui.components.EmptyArt
+import com.example.eschedule.ui.components.EmptyState
 import com.example.eschedule.ui.components.FigmaTextMuted
 import com.example.eschedule.ui.components.PageTitle
 import com.example.eschedule.ui.components.ScreenMargin
 import kotlinx.coroutines.launch
-import java.util.Calendar
+import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
 // ── Geometry ───────────────────────────────────────────────────────────────────
@@ -92,6 +97,7 @@ private const val RUBBER_ZOOM = 0.85f    // how far a pinch may overshoot below 
 /** One block on the weekly schedule grid */
 data class ClassBlock(
     val id: String,
+    val classId: Long,
     val subjectCode: String,
     val dayIndex: Int,          // 0 = Mon … 6 = Sun
     val startHour: Float,       // e.g. 8.0 for 8:00 AM
@@ -100,35 +106,16 @@ data class ClassBlock(
 
 @Composable
 fun ClassesScreen(
-    onClassClick: (String) -> Unit,
+    blocks: List<ClassBlock>,
+    /** Any class exists at all — tells "no classes yet" apart from "none this week". */
+    hasAnyClasses: Boolean,
+    onClassClick: (Long) -> Unit,
     onAddClass: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val blocks = remember {
-        listOf(
-            ClassBlock("sia101_mon", "SIA101",        0, 8f,  1f),
-            ClassBlock("it102_tue",  "IT102",         1, 8f,  1f),
-            ClassBlock("sia101_wed", "SIA101",        2, 8f,  1f),
-            ClassBlock("ge_wed",     "GE\nELEC 1",    2, 9f,  3f),
-            ClassBlock("im101_tue",  "IM101",         1, 10f, 2f),
-            ClassBlock("it102_thu",  "IT102",         3, 8f,  1f),
-            ClassBlock("sia101_thu", "SIA101",        3, 10f, 3f),
-            ClassBlock("ipt101_mon", "IPT101",        0, 13f, 1f),
-            ClassBlock("net102_tue", "NET102",        1, 14f, 1f),
-            ClassBlock("its101_wed", "ITS101",        2, 14f, 2f),
-            ClassBlock("net102_thu", "NET102",        3, 14f, 1f),
-            ClassBlock("its101_mon", "ITS101",        0, 15f, 1f),
-            ClassBlock("its101_thu", "ITS101",        3, 15f, 2f),
-            ClassBlock("net102_mon", "NET102",        0, 16f, 3f),
-            ClassBlock("im101_wed2", "IM101",         2, 16f, 3f),
-        )
-    }
-
     // Current time in fractional hours (e.g. 12.5 = 12:30 PM)
-    val currentHour = remember {
-        val cal = Calendar.getInstance()
-        cal.get(Calendar.HOUR_OF_DAY) + cal.get(Calendar.MINUTE) / 60f
-    }
+    val now by remember { minuteTicker() }.collectAsState(initial = LocalDateTime.now())
+    val currentHour = now.hour + now.minute / 60f
 
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -167,77 +154,90 @@ fun ClassesScreen(
 
             PageTitle(title = "Class Schedule")
 
-            // ── Day header (sticky vertically, follows the grid's horizontal scroll)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenMargin),
-            ) {
-                Spacer(Modifier.width(LABEL_W))
-                Box(
+            if (blocks.isEmpty()) {
+                EmptyState(
+                    art = EmptyArt.Calendar,
+                    title = if (hasAnyClasses) "No classes this week" else "No classes yet",
+                    message = if (hasAnyClasses) "Your classes will appear here as soon as they start."
+                    else "Tap + to add your first class and build your weekly schedule.",
                     modifier = Modifier
                         .weight(1f)
-                        .horizontalScroll(hScroll, enabled = false),
+                        .fillMaxWidth()
+                        .padding(bottom = 96.dp),
+                )
+            } else {
+                // ── Day header (sticky vertically, follows the grid's horizontal scroll)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ScreenMargin),
                 ) {
-                    Row(
-                        modifier = Modifier.width(gridWidth),
-                        horizontalArrangement = Arrangement.spacedBy(COL_GAP),
+                    Spacer(Modifier.width(LABEL_W))
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .horizontalScroll(hScroll, enabled = false),
                     ) {
-                        DAYS.forEach { day ->
-                            Text(
-                                text = day,
-                                fontSize = 12.sp,
-                                lineHeight = 18.sp,
-                                fontWeight = FontWeight.Normal,
-                                color = Color.Black,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.weight(1f),
-                            )
+                        Row(
+                            modifier = Modifier.width(gridWidth),
+                            horizontalArrangement = Arrangement.spacedBy(COL_GAP),
+                        ) {
+                            DAYS.forEach { day ->
+                                Text(
+                                    text = day,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = Color.Black,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(Spacing.sm))
+                Spacer(Modifier.height(Spacing.sm))
 
-            // ── Scrollable, pinch-zoomable 24h grid
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .pinchZoom(
-                        onZoom = { change, centroid ->
-                            val old = zoom
-                            val new = (old * change).coerceIn(RUBBER_ZOOM, MAX_ZOOM)
-                            if (new != old) {
-                                pendingRatio *= new / old
-                                pendingFocus = Offset(
-                                    x = (centroid.x - labelWPx).coerceAtLeast(0f),
-                                    y = centroid.y,
-                                )
-                                zoom = new
-                            }
-                        },
-                        onEnd = {
-                            if (zoom < MIN_ZOOM) {
-                                scope.launch { animate(zoom, MIN_ZOOM) { v, _ -> zoom = v } }
-                            }
-                        },
+                // ── Scrollable, pinch-zoomable 24h grid
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .pinchZoom(
+                            onZoom = { change, centroid ->
+                                val old = zoom
+                                val new = (old * change).coerceIn(RUBBER_ZOOM, MAX_ZOOM)
+                                if (new != old) {
+                                    pendingRatio *= new / old
+                                    pendingFocus = Offset(
+                                        x = (centroid.x - labelWPx).coerceAtLeast(0f),
+                                        y = centroid.y,
+                                    )
+                                    zoom = new
+                                }
+                            },
+                            onEnd = {
+                                if (zoom < MIN_ZOOM) {
+                                    scope.launch { animate(zoom, MIN_ZOOM) { v, _ -> zoom = v } }
+                                }
+                            },
+                        )
+                        .verticalScroll(vScroll)
+                        .padding(horizontal = ScreenMargin),
+                ) {
+                    WeeklyGrid(
+                        blocks = blocks,
+                        currentHour = currentHour,
+                        zoom = zoom,
+                        hourHeight = hourHeight,
+                        gridWidth = gridWidth,
+                        hScroll = hScroll,
+                        onBlockClick = onClassClick,
                     )
-                    .verticalScroll(vScroll)
-                    .padding(horizontal = ScreenMargin),
-            ) {
-                WeeklyGrid(
-                    blocks = blocks,
-                    currentHour = currentHour,
-                    zoom = zoom,
-                    hourHeight = hourHeight,
-                    gridWidth = gridWidth,
-                    hScroll = hScroll,
-                    onBlockClick = onClassClick,
-                )
+                }
             }
         }
 
@@ -297,8 +297,8 @@ private fun WeeklyGrid(
     zoom: Float,
     hourHeight: Dp,
     gridWidth: Dp,
-    hScroll: androidx.compose.foundation.ScrollState,
-    onBlockClick: (String) -> Unit,
+    hScroll: ScrollState,
+    onBlockClick: (Long) -> Unit,
 ) {
     val hours = TIME_START until TIME_END
     val totalHeight = GRID_TOP_PAD + hourHeight * (TIME_END - TIME_START) + 140.dp   // + room above the nav bar
@@ -366,7 +366,7 @@ private fun WeeklyGrid(
                             .height(hourHeight * block.durationHours - 1.dp)
                             .clip(RoundedCornerShape(2.5.dp))
                             .background(ClassCyan)
-                            .clickable { onBlockClick(block.id) },
+                            .clickable { onBlockClick(block.classId) },
                     ) {
                         Text(
                             text = block.subjectCode,

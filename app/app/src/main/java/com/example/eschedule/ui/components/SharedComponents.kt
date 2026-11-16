@@ -1,6 +1,31 @@
 package com.example.eschedule.ui.components
 
 import androidx.compose.foundation.Canvas
+import kotlinx.coroutines.flow.first
+import com.example.eschedule.data.model.ReminderStatus
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,7 +91,7 @@ val CardRadius = 12.dp
 // ─────────────────────────────────────────────────────────────────────────────
 
 data class ClassCardData(
-    val id: String,
+    val id: Long,
     val title: String,
     val timeRange: String,
     val location: String,
@@ -138,20 +163,26 @@ fun ClassCard(
 // ReminderItemData + ReminderListItem
 //   Row (≥ 48dp tall for touch): 40dp checkbox hit-area (18dp box) · title (Poppins 12, black) ·
 //   time (Poppins 11, black 50%) · 40dp more-button hit-area with the 20dp dots icon.
-//   The three-dot button is the only entry point to the reminder's details (no long-press menu).
+//   Checkbox: tap = done / reopen, long-press = "won't do" (dash). The three-dot button is the
+//   only entry point to the reminder's details.
 // ─────────────────────────────────────────────────────────────────────────────
 
 data class ReminderItemData(
-    val id: String,
+    val id: Long,
     val title: String,
     val dueLabel: String,
-    val isCompleted: Boolean = false,
+    val status: ReminderStatus = ReminderStatus.Open,
+    /** Past its due date — the due label turns red. */
+    val isOverdue: Boolean = false,
 )
+
+private val OverdueColor = Color(0xFFD93025)
 
 @Composable
 fun ReminderListItem(
     data: ReminderItemData,
-    onCheckedChange: (Boolean) -> Unit,
+    onToggle: () -> Unit,
+    onWontDo: () -> Unit,
     onMoreClick: () -> Unit,
     modifier: Modifier = Modifier,
     showMoreButton: Boolean = true,
@@ -165,15 +196,17 @@ fun ReminderListItem(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FigmaCheckbox(
-            checked = data.isCompleted,
-            onCheckedChange = onCheckedChange,
+            status = data.status,
+            onClick = onToggle,
+            onLongClick = onWontDo,
         )
         Text(
             text = data.title,
             fontSize = 12.sp,
             lineHeight = 18.sp,
             fontWeight = FontWeight.Normal,
-            color = Color.Black,
+            color = if (data.status == ReminderStatus.Open) Color.Black else FigmaTextMuted,
+            textDecoration = if (data.status == ReminderStatus.WontDo) TextDecoration.LineThrough else null,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
@@ -186,7 +219,7 @@ fun ReminderListItem(
             fontSize = 11.sp,
             lineHeight = 16.sp,
             fontWeight = FontWeight.Normal,
-            color = dueColor,
+            color = if (data.isOverdue) OverdueColor else dueColor,
             maxLines = 1,
         )
         if (showMoreButton) {
@@ -213,40 +246,153 @@ fun ReminderListItem(
     }
 }
 
-/** 18dp square checkbox (1.5dp black-25% border, 3dp radius) inside a 40dp touch target. */
+/** Screens set this to `true` once their first data has been shown, so only *later* rows animate in. */
+val LocalAnimateRowEnter = compositionLocalOf { false }
+
+/** Side a row slides towards when it leaves, or arrives from. */
+enum class RowSide { Left, Right }
+
+private const val ROW_ANIM_MS = 260
+
+/**
+ * A reminder row that animates: it slides in (and fades / expands) when it appears after the
+ * screen has settled, and when the user checks it, it first shows the new state, then swipes
+ * out towards [exitSide] and only then reports the change through [onCommit] — so the data
+ * moves to the other list after the animation, not before.
+ *
+ * Tap → Done (or Open when the row is already finished); long-press on an open row → Won't do.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun AnimatedReminderRow(
+    data: ReminderItemData,
+    enterSide: RowSide,
+    exitSide: RowSide,
+    onCommit: (ReminderStatus) -> Unit,
+    onMoreClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    showMoreButton: Boolean = true,
+    dueColor: Color = FigmaTextMuted,
+    minHeight: Dp = Spacing.touchTarget,
+) {
+    val animateEnter = LocalAnimateRowEnter.current
+    val visible = remember { MutableTransitionState(!animateEnter).apply { targetState = true } }
+    var pending by remember { mutableStateOf<ReminderStatus?>(null) }
+
+    LaunchedEffect(pending) {
+        val target = pending ?: return@LaunchedEffect
+        visible.targetState = false
+        snapshotFlow { visible.isIdle && !visible.currentState }.first { it }
+        onCommit(target)
+    }
+
+    AnimatedVisibility(
+        visibleState = visible,
+        modifier = modifier,
+        enter = slideInHorizontally(tween(ROW_ANIM_MS)) { w -> if (enterSide == RowSide.Left) -w / 3 else w / 3 } +
+            fadeIn(tween(ROW_ANIM_MS)) +
+            expandVertically(tween(ROW_ANIM_MS)),
+        exit = slideOutHorizontally(tween(ROW_ANIM_MS)) { w -> if (exitSide == RowSide.Left) -w else w } +
+            fadeOut(tween(ROW_ANIM_MS)) +
+            shrinkVertically(tween(ROW_ANIM_MS, delayMillis = 120)),
+    ) {
+        ReminderListItem(
+            data = data.copy(status = pending ?: data.status),
+            onToggle = {
+                if (pending == null) {
+                    pending = if (data.status == ReminderStatus.Open) ReminderStatus.Done else ReminderStatus.Open
+                }
+            },
+            onWontDo = {
+                if (pending == null && data.status == ReminderStatus.Open) pending = ReminderStatus.WontDo
+            },
+            onMoreClick = onMoreClick,
+            showMoreButton = showMoreButton,
+            dueColor = dueColor,
+            minHeight = minHeight,
+        )
+    }
+}
+
+/**
+ * 18dp checkbox inside a 40dp touch target.
+ *   Open   → empty box
+ *   Done   → blue box with a check that draws itself in
+ *   WontDo → box with a dash (the item was dropped, not done)
+ * Long-press gives a haptic tick.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FigmaCheckbox(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    status: ReminderStatus,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(3.dp)
+    val haptics = LocalHapticFeedback.current
+
+    val fill by animateColorAsState(
+        targetValue = if (status == ReminderStatus.Done) UepBlue else Color.Transparent,
+        animationSpec = tween(180),
+        label = "checkFill",
+    )
+    val border by animateColorAsState(
+        targetValue = when (status) {
+            ReminderStatus.Done -> UepBlue
+            ReminderStatus.WontDo -> Color(0x73000000)
+            ReminderStatus.Open -> CheckboxBorder
+        },
+        animationSpec = tween(180),
+        label = "checkBorder",
+    )
+    val checkProgress by animateFloatAsState(
+        targetValue = if (status == ReminderStatus.Done) 1f else 0f,
+        animationSpec = tween(200),
+        label = "checkDraw",
+    )
+    val dashProgress by animateFloatAsState(
+        targetValue = if (status == ReminderStatus.WontDo) 1f else 0f,
+        animationSpec = tween(200),
+        label = "dashDraw",
+    )
+
     Box(
         modifier = modifier
             .size(40.dp)
             .clip(CircleShape)
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = { onCheckedChange(!checked) },
+                onClick = onClick,
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onLongClick()
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Box(
+        Canvas(
             modifier = Modifier
                 .size(18.dp)
-                .then(
-                    if (checked) Modifier.background(UepBlue, shape)
-                    else Modifier.border(1.5.dp, CheckboxBorder, shape)
-                ),
-            contentAlignment = Alignment.Center,
+                .background(fill, shape)
+                .border(1.5.dp, border, shape),
         ) {
-            if (checked) {
-                Canvas(Modifier.size(18.dp)) {
-                    val w = 1.8.dp.toPx()
-                    drawLine(Color.White, Offset(size.width * 0.24f, size.height * 0.52f), Offset(size.width * 0.43f, size.height * 0.70f), w, StrokeCap.Round)
-                    drawLine(Color.White, Offset(size.width * 0.43f, size.height * 0.70f), Offset(size.width * 0.76f, size.height * 0.31f), w, StrokeCap.Round)
-                }
+            val w = 1.8.dp.toPx()
+            if (checkProgress > 0f) {
+                // Two strokes: short leg then long leg, revealed by progress.
+                val p1 = Offset(size.width * 0.24f, size.height * 0.52f)
+                val p2 = Offset(size.width * 0.43f, size.height * 0.70f)
+                val p3 = Offset(size.width * 0.76f, size.height * 0.31f)
+                val firstEnd = (checkProgress * 2f).coerceAtMost(1f)
+                val secondEnd = ((checkProgress - 0.5f) * 2f).coerceIn(0f, 1f)
+                drawLine(Color.White, p1, lerp(p1, p2, firstEnd), w, StrokeCap.Round)
+                if (secondEnd > 0f) drawLine(Color.White, p2, lerp(p2, p3, secondEnd), w, StrokeCap.Round)
+            }
+            if (dashProgress > 0f) {
+                val cy = size.height / 2f
+                val half = size.width * 0.28f * dashProgress
+                drawLine(Color(0x99000000), Offset(size.width / 2f - half, cy), Offset(size.width / 2f + half, cy), w, StrokeCap.Round)
             }
         }
     }
@@ -309,10 +455,12 @@ fun FilterChip(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(25.dp)
+    val bg by animateColorAsState(if (selected) UepBlue else Color.Transparent, tween(200), label = "chipBg")
+    val fg by animateColorAsState(if (selected) Color.White else FigmaTextMuted, tween(200), label = "chipFg")
     Box(
         modifier = modifier
             .height(36.dp)
-            .background(if (selected) UepBlue else Color.Transparent, shape)
+            .background(bg, shape)
             .border(1.dp, Color(0x1A000000), shape)
             .clip(shape)
             .clickable(
@@ -328,7 +476,7 @@ fun FilterChip(
             fontSize = 12.sp,
             lineHeight = 18.sp,
             fontWeight = FontWeight.Normal,
-            color = if (selected) Color.White else FigmaTextMuted,
+            color = fg,
         )
     }
 }
