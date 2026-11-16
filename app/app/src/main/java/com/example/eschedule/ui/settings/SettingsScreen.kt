@@ -1,43 +1,46 @@
 package com.example.eschedule.ui.settings
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.eschedule.theme.DividerColor
-import com.example.eschedule.theme.TextSecondary
-import com.example.eschedule.theme.TextTertiary
-import com.example.eschedule.theme.UepBlue
-import com.example.eschedule.ui.components.AppIcons
+import androidx.compose.ui.unit.sp
+import com.example.eschedule.R
+import com.example.eschedule.theme.Spacing
+import com.example.eschedule.ui.components.CardRadius
 import com.example.eschedule.ui.components.PageTitle
+import com.example.eschedule.ui.components.ScreenMargin
 import com.example.eschedule.ui.components.appShadow
+
+// Settings: group label (Poppins Bold 12, #BBB) → 8dp → white card of 52dp rows.
+// Each row = 16dp UEP-blue icon (Figma exports, scaled up from ~12dp), 16dp gap, Poppins 12 label.
+private val GroupLabelColor = Color(0xFFBBBBBB)
 
 private data class SettingsItem(
     val label: String,
-    val icon: ImageVector,
+    val iconRes: Int,
     val route: String,
 )
 
@@ -48,75 +51,63 @@ fun SettingsScreen(
 ) {
     val generalItems = remember {
         listOf(
-            SettingsItem("Account Sync",              AppIcons.Reminder,  "account_sync"),
-            SettingsItem("Widgets",                   AppIcons.Classes,   "widgets"),
-            SettingsItem("Notification & Reminder",   AppIcons.Reminder,  "notifications"),
-            SettingsItem("Theme",                     AppIcons.Settings,  "theme"),
+            SettingsItem("Account Sync",            R.drawable.ic_settings_account_sync,  "account_sync"),
+            SettingsItem("Widgets",                 R.drawable.ic_settings_widgets,       "widgets"),
+            SettingsItem("Notification & Reminder", R.drawable.ic_settings_notifications, "notifications"),
+            SettingsItem("Theme",                   R.drawable.ic_settings_theme,         "theme"),
         )
     }
     val aboutItems = remember {
         listOf(
-            SettingsItem("Language",     AppIcons.Location,  "language"),
-            SettingsItem("Feedback",     AppIcons.Edit,      "feedback"),
-            SettingsItem("Share App",    AppIcons.Add,       "share"),
-            SettingsItem("Follow Us",    AppIcons.Home,      "follow"),
-            SettingsItem("Privacy Policy", AppIcons.Settings, "privacy"),
+            SettingsItem("Language",       R.drawable.ic_settings_language, "language"),
+            SettingsItem("Feedback",       R.drawable.ic_settings_feedback, "feedback"),
+            SettingsItem("Share App",      R.drawable.ic_settings_share,    "share"),
+            SettingsItem("Follow Us",      R.drawable.ic_settings_follow,   "follow"),
+            SettingsItem("Privacy Policy", R.drawable.ic_settings_privacy,  "privacy"),
         )
     }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .verticalScroll(rememberScrollState()),
     ) {
         PageTitle(title = "Settings")
 
-        SettingsGroupLabel("General")
-        SettingsGroup(items = generalItems, onItemClick = onItemClick)
+        SettingsGroup(label = "General", items = generalItems, onItemClick = onItemClick)
+        Spacer(Modifier.height(Spacing.lg))
+        SettingsGroup(label = "About", items = aboutItems, onItemClick = onItemClick)
 
-        Spacer(Modifier.height(12.dp))
-
-        SettingsGroupLabel("About")
-        SettingsGroup(items = aboutItems, onItemClick = onItemClick)
-
-        Spacer(Modifier.height(80.dp))
+        // Clear the floating nav bar
+        Spacer(Modifier.height(140.dp))
     }
 }
 
 @Composable
-private fun SettingsGroupLabel(label: String) {
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelMedium,
-        color = TextTertiary,
-        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
-    )
-}
-
-@Composable
 private fun SettingsGroup(
+    label: String,
     items: List<SettingsItem>,
     onItemClick: (String) -> Unit,
 ) {
-    Box(
+    Text(
+        text = label,
+        fontSize = 12.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.Bold,
+        color = GroupLabelColor,
+        modifier = Modifier.padding(horizontal = ScreenMargin),
+    )
+    Spacer(Modifier.height(Spacing.sm))
+    Column(
         modifier = Modifier
+            .padding(horizontal = ScreenMargin)
             .fillMaxWidth()
-            .appShadow(cornerRadius = 14.dp)
-            .background(Color.White, RoundedCornerShape(12.dp)),
+            .appShadow(cornerRadius = CardRadius)
+            .background(Color.White, RoundedCornerShape(CardRadius))
+            .padding(vertical = Spacing.xs),
     ) {
-        Column {
-            items.forEachIndexed { index, item ->
-                SettingsRow(item = item, onClick = { onItemClick(item.route) })
-                if (index < items.lastIndex) {
-                    HorizontalDivider(
-                        color = DividerColor,
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
-                }
-            }
+        items.forEach { item ->
+            SettingsRow(item = item, onClick = { onItemClick(item.route) })
         }
     }
 }
@@ -129,25 +120,28 @@ private fun SettingsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 52.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 16.dp, vertical = 16.dp),
+            .padding(horizontal = Spacing.md),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(
-            imageVector = item.icon,
-            contentDescription = item.label,
-            tint = UepBlue,
-            modifier = Modifier.size(20.dp),
+        Image(
+            painter = painterResource(item.iconRes),
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
         )
+        Spacer(Modifier.width(16.dp))
         Text(
             text = item.label,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color.Black,
+            maxLines = 1,
         )
     }
 }

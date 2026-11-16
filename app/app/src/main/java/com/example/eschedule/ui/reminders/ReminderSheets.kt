@@ -2,33 +2,22 @@ package com.example.eschedule.ui.reminders
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,22 +26,37 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.eschedule.theme.DividerColor
-import com.example.eschedule.theme.TextSecondary
-import com.example.eschedule.theme.TextTertiary
-import com.example.eschedule.theme.UepBlue
-import com.example.eschedule.ui.components.AppIcons
-import com.example.eschedule.ui.components.appShadow
+import com.example.eschedule.R
+import com.example.eschedule.theme.Spacing
+import com.example.eschedule.ui.components.FigmaSheet
+import com.example.eschedule.ui.components.FigmaTextMuted
+import com.example.eschedule.ui.components.OptionDivider
+import com.example.eschedule.ui.components.OptionRow
+import com.example.eschedule.ui.components.SheetCard
+import com.example.eschedule.ui.components.SheetCircleAction
+import com.example.eschedule.ui.components.SheetGap
+import com.example.eschedule.ui.components.SheetHeader
+import com.example.eschedule.ui.components.SheetIconField
+import com.example.eschedule.ui.components.SheetIconText
+import com.example.eschedule.ui.components.SheetLabel
+import com.example.eschedule.ui.components.SheetSaveButton
+import com.example.eschedule.ui.components.SheetTextPlaceholder
+import com.example.eschedule.ui.components.SheetTextValue
+import com.example.eschedule.ui.components.SheetTitleField
 import java.util.Calendar
 
-@OptIn(ExperimentalMaterial3Api::class)
+// ─── Add / Edit Reminder bottom sheet ────────────────────────────────────────
+//   Figma "Add Reminder" / "Edit Reminder":
+//   title row → title field (y+70) → "Options" (y+140) → options card 343 × 85 (y+163)
+//   → "Location" (y+268) → field → "Details" → field with 25dp bottom corners.
+
 @Composable
 fun AddReminderSheet(
     onDismiss: () -> Unit,
@@ -61,7 +65,6 @@ fun AddReminderSheet(
     sheetTitle: String = "Add Reminder",
 ) {
     val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var title by remember { mutableStateOf(initialTitle) }
 
     // ── Date state ────────────────────────────────────────────────────────────
@@ -87,9 +90,9 @@ fun AddReminderSheet(
         }
     }
 
-    // ── Time state ────────────────────────────────────────────────────────────
+    // ── Time state (the Figma frames show the time line + toggle together) ────
     var timeText by remember { mutableStateOf("9:00 AM") }
-    var timeEnabled by remember { mutableStateOf(false) }
+    var timeEnabled by remember { mutableStateOf(true) }
     var showTimePicker by remember { mutableStateOf(false) }
     if (showTimePicker) {
         LaunchedEffect(Unit) {
@@ -111,118 +114,100 @@ fun AddReminderSheet(
     var locationText by remember { mutableStateOf("") }
     var notesText    by remember { mutableStateOf("") }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = MaterialTheme.colorScheme.background,
-        dragHandle = null,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = sheetTitle,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = UepBlue,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                )
-                SaveButton(onClick = { onSave(title) })
-            }
+    FigmaSheet(onDismiss = onDismiss) {
+        SheetHeader(title = sheetTitle) {
+            SheetSaveButton(onClick = { onSave(title) })
+        }
 
-            TitleField(value = title, onValueChange = { title = it })
+        SheetGap(Spacing.md)
+        SheetTitleField(value = title, onValueChange = { title = it })
 
-            // Options card
-            Text(text = "Options", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-            OptionsCard {
-                // Date row — tapping opens DatePickerDialog
-                OptionRow(
-                    label = "Date",
-                    trailingContent = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) { showDatePicker = true },
-                        ) {
-                            Text(dateText, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                            Spacer(Modifier.width(4.dp))
-                            Icon(AppIcons.Expand, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                        }
-                    },
-                )
+        SheetGap(Spacing.lg)
+        SheetLabel("Options")
+        SheetGap(Spacing.sm)
+        SheetCard {
+            Column {
+                OptionRow("Date", dateText) { showDatePicker = true }
                 OptionDivider()
-                // Time row — tapping the expand icon opens TimePickerDialog
-                OptionRow(
-                    label = "Time",
-                    subLabel = if (timeEnabled) timeText else null,
-                    trailingContent = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (timeEnabled) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable(
+
+                // Time row: label (+ picker line while enabled) on the left, toggle on the right
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 64.dp)
+                        .padding(horizontal = Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Time",
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            color = Color.Black,
+                        )
+                        if (timeEnabled) {
+                            Row(
+                                modifier = Modifier
+                                    .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
-                                    ) { showTimePicker = true },
-                                ) {
-                                    Icon(AppIcons.Expand, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                                }
-                                Spacer(Modifier.width(8.dp))
+                                    ) { showTimePicker = true }
+                                    .padding(vertical = Spacing.xs),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = timeText,
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp,
+                                    color = FigmaTextMuted,
+                                )
+                                Spacer(Modifier.width(Spacing.sm))
+                                Image(painterResource(R.drawable.ic_sheet_expand10), null, Modifier.size(10.dp))
                             }
-                            Switch(
-                                checked = timeEnabled,
-                                onCheckedChange = { timeEnabled = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor   = Color.White,
-                                    checkedTrackColor   = UepBlue,
-                                    uncheckedThumbColor = Color.White,
-                                    uncheckedTrackColor = TextTertiary,
-                                ),
-                            )
                         }
-                    },
-                )
+                    }
+                    // Toggle asset (thumb right = on, mirrored = off), 48dp touch target
+                    Image(
+                        painter = painterResource(R.drawable.ic_sheet_toggle),
+                        contentDescription = "Toggle time",
+                        modifier = Modifier
+                            .size(48.dp)
+                            .scale(scaleX = if (timeEnabled) 1f else -1f, scaleY = 1f)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { timeEnabled = !timeEnabled },
+                    )
+                }
             }
-
-            // Location
-            Text(text = "Location", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-            GrowingInputRow(
-                icon = { Icon(AppIcons.Location, null, tint = TextTertiary, modifier = Modifier.size(20.dp)) },
-                placeholder = "Add Location",
-                value = locationText,
-                onValueChange = { locationText = it },
-            )
-
-            // Details
-            Text(text = "Details", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-            GrowingInputRow(
-                icon = { Icon(AppIcons.Pencil, null, tint = TextTertiary, modifier = Modifier.size(20.dp)) },
-                placeholder = "Notes",
-                value = notesText,
-                onValueChange = { notesText = it },
-            )
-
-            Spacer(Modifier.height(16.dp))
         }
+
+        SheetGap(Spacing.lg)
+        SheetLabel("Location")
+        SheetGap(Spacing.sm)
+        SheetIconField(
+            iconRes = R.drawable.ic_sheet_location,
+            value = locationText,
+            onValueChange = { locationText = it },
+            placeholder = "Add Location",
+        )
+
+        SheetGap(Spacing.lg)
+        SheetLabel("Details")
+        SheetGap(Spacing.sm)
+        SheetIconField(
+            iconRes = R.drawable.ic_sheet_pencil,
+            value = notesText,
+            onValueChange = { notesText = it },
+            placeholder = "Notes",
+            bottomRadius = 24.dp,
+        )
     }
 }
 
 // ─── View Reminder (read-only) bottom sheet ──────────────────────────────────
+//   Figma "View Reminder": 20dp checkbox + 20dp SemiBold title, Poppins Light detail lines.
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ViewReminderSheet(
     reminderId: String,
@@ -230,243 +215,62 @@ fun ViewReminderSheet(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    FigmaSheet(onDismiss = onDismiss) {
+        SheetHeader(title = "Details") {
+            SheetCircleAction(R.drawable.ic_sheet_delete, "Delete", onDelete)
+            Spacer(Modifier.width(Spacing.sm))
+            SheetCircleAction(R.drawable.ic_sheet_edit, "Edit", onEdit)
+        }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = MaterialTheme.colorScheme.background,
-        dragHandle = null,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "Details",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = UepBlue,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                )
-                IconActionButton(icon = AppIcons.Delete, contentDescription = "Delete", onClick = onDelete)
-                Spacer(Modifier.width(8.dp))
-                IconActionButton(icon = AppIcons.Edit,   contentDescription = "Edit",   onClick = onEdit)
-            }
-
+        SheetGap(Spacing.md)
+        Row(verticalAlignment = Alignment.Top) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(DividerColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                    .padding(12.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(Modifier.width(32.dp))
-                    Column {
-                        Text("Pag laba", style = MaterialTheme.typography.titleMedium)
-                        Text("Today",    style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                        Text("12:51 PM", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                    }
-                }
-            }
-
-            Text(text = "Location", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-            ReadOnlyInputRow(
-                icon = { Icon(AppIcons.Location, null, tint = TextTertiary, modifier = Modifier.size(20.dp)) },
-                value = "Location",
+                    .padding(top = 5.dp)
+                    .size(20.dp)
+                    .border(1.5.dp, Color(0x40000000), RoundedCornerShape(3.dp)),
             )
-
-            Text(text = "Details", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-            ReadOnlyInputRow(
-                icon = { Icon(AppIcons.Pencil, null, tint = TextTertiary, modifier = Modifier.size(20.dp)) },
-                value = "Notes",
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "Pag laba",
+                fontSize = 20.sp,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = SheetTextValue,
             )
-
-            Spacer(Modifier.height(16.dp))
         }
-    }
-}
-
-// ─── Reusable sub-components ─────────────────────────────────────────────────
-
-@Composable
-private fun SaveButton(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .background(UepBlue, RoundedCornerShape(50))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
+        SheetGap(Spacing.sm)
+        Column {
+            Text(
+                text = "Today",
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.Light,
+                color = FigmaTextMuted,
             )
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = "Save", style = MaterialTheme.typography.labelLarge, color = Color.White)
-    }
-}
-
-@Composable
-private fun TitleField(value: String, onValueChange: (String) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .appShadow(cornerRadius = 10.dp)
-            .background(Color.White, RoundedCornerShape(8.dp)),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Blue accent pill
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .height(52.dp)
-                .background(UepBlue, RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)),
-        )
-        // Breathing room after the pill
-        Spacer(Modifier.width(10.dp))
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = TextStyle(
-                fontSize = 16.sp,
-                color = Color(0xFF1A1A1A),
-            ),
-            singleLine = true,
-            cursorBrush = SolidColor(UepBlue),
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = 12.dp, top = 14.dp, bottom = 14.dp),
-            decorationBox = { innerTextField ->
-                Box {
-                    if (value.isEmpty()) {
-                        Text("Title", color = TextTertiary, fontSize = 16.sp)
-                    }
-                    innerTextField()
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun OptionsCard(content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .appShadow(cornerRadius = 10.dp)
-            .background(Color.White, RoundedCornerShape(8.dp))
-            .padding(horizontal = 16.dp),
-    ) {
-        Column { content() }
-    }
-}
-
-@Composable
-private fun OptionRow(
-    label: String,
-    subLabel: String? = null,
-    trailingContent: @Composable () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-            if (subLabel != null) {
-                Text(text = subLabel, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            }
+            Text(
+                text = "12:51 PM",
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.Light,
+                color = FigmaTextMuted,
+            )
         }
-        trailingContent()
-    }
-}
 
-@Composable
-private fun OptionDivider() {
-    HorizontalDivider(color = DividerColor, thickness = 0.5.dp)
-}
+        SheetGap(Spacing.lg)
+        SheetLabel("Location")
+        SheetGap(Spacing.sm)
+        SheetIconText(R.drawable.ic_sheet_location, "Location", SheetTextPlaceholder)
 
-// Auto-growing text input with white card + shadow
-@Composable
-private fun GrowingInputRow(
-    icon: @Composable () -> Unit,
-    placeholder: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .appShadow(cornerRadius = 10.dp)
-            .background(Color.White, RoundedCornerShape(8.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(modifier = Modifier.padding(top = 2.dp)) { icon() }
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = TextStyle(fontSize = 14.sp, color = Color(0xFF1A1A1A), lineHeight = 20.sp),
-            cursorBrush = SolidColor(UepBlue),
-            modifier = Modifier
-                .weight(1f)
-                .padding(bottom = 2.dp),
-            decorationBox = { innerTextField ->
-                Box {
-                    if (value.isEmpty()) {
-                        Text(placeholder, color = TextTertiary, fontSize = 14.sp)
-                    }
-                    innerTextField()
-                }
-            },
+        SheetGap(Spacing.lg)
+        SheetLabel("Details")
+        SheetGap(Spacing.sm)
+        SheetIconText(
+            iconRes = R.drawable.ic_sheet_pencil,
+            text = "Notes",
+            textColor = SheetTextPlaceholder,
+            bottomRadius = 24.dp,
         )
-    }
-}
-
-@Composable
-private fun ReadOnlyInputRow(
-    icon: @Composable () -> Unit,
-    value: String,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .appShadow(cornerRadius = 10.dp)
-            .background(Color.White, RoundedCornerShape(8.dp))
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        icon()
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = TextTertiary)
-    }
-}
-
-@Composable
-private fun IconActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .background(TextTertiary.copy(alpha = 0.2f), RoundedCornerShape(50))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = contentDescription, tint = TextSecondary, modifier = Modifier.size(20.dp))
     }
 }
 

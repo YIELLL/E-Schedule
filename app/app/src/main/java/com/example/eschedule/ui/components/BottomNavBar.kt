@@ -2,18 +2,19 @@ package com.example.eschedule.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,16 +29,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.eschedule.theme.AppBackground
+import com.example.eschedule.R
+import com.example.eschedule.theme.Inter
 import com.example.eschedule.theme.NavActiveBlue
-import com.example.eschedule.theme.UepBlue
-import com.example.eschedule.theme.UepYellow
 
 sealed interface TabRoute {
     data object Home : TabRoute
@@ -47,29 +46,41 @@ sealed interface TabRoute {
     data object Settings : TabRoute
 }
 
+// ── Figma geometry (402 × 874 frame) ──────────────────────────────────────────
+//   Nav pill : x 16, y 789, 370 × 65, radius 50, black @ 20%  (20dp above frame bottom)
+//   Scan FAB : 85 × 85 asset, centred, top = pill top − 43
+//   Icons    : Home 30, Classes 26, Reminders 26, Settings 27
+//   Labels   : Inter SemiBold 8 (Scan = 10), white; selected = #0088FF
+private val PillHeight: Dp = 65.dp
+private val PillRadius: Dp = 50.dp
+private val PillSideMargin: Dp = 16.dp
+private val PillBottomMargin: Dp = 20.dp
+private val FabSize: Dp = 85.dp
+private val FabOverhang: Dp = 43.dp
+private val NavTabWidth: Dp = 60.dp
+
+private val PillColor = Color(0x33000000)     // black 20%
+private val InactiveTint = Color.White
+private val ActiveTint = NavActiveBlue
+
 private data class NavItem(
     val label: String,
-    val icon: ImageVector,
+    val iconRes: Int,
     val tab: TabRoute,
+    /** Horizontal centre of the tab as a fraction of the pill width (Figma x-centre / 370). */
+    val centerFraction: Float,
+    val iconSize: Dp,
+    /** Offsets from the pill's top edge. */
+    val iconTop: Dp,
+    val labelTop: Dp,
 )
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
-private val PillBg       = Color(0x80000000)        // black 50%
-private val PillBorder   = Color(0x18FFFFFF)
-private val ActiveTint   = NavActiveBlue             // #0088FF when selected
-private val InactiveTint = Color.White               // plain white when idle
-
-// Shared sizing so icon + label are always proportional across all items
-private val NavIconSize  : Dp = 20.dp
-private val NavLabelSize = 10.sp
-
-// FAB geometry — cutout ring around yellow button
-private val PillHeight   : Dp = 60.dp
-private val FabSize      : Dp = 56.dp
-private val FabRing      : Dp = 6.dp
-private val FabRingSize  : Dp = FabSize + FabRing * 2   // 68dp
-// Label box height: makes FAB centre land exactly at pill top
-private val ScanLabelH   : Dp = PillHeight - FabRingSize / 2
+private val NavItems = listOf(
+    NavItem("Home",      R.drawable.ic_nav_home,      TabRoute.Home,      45f / 370f,    30.dp, 12.dp, 40.dp),
+    NavItem("Classes",   R.drawable.ic_nav_classes,   TabRoute.Classes,   105f / 370f,   26.dp, 14.dp, 40.dp),
+    NavItem("Reminders", R.drawable.ic_nav_reminders, TabRoute.Reminders, 255f / 370f,   26.dp, 14.dp, 42.dp),
+    NavItem("Settings",  R.drawable.ic_nav_settings,  TabRoute.Settings,  323.5f / 370f, 27.dp, 14.dp, 42.dp),
+)
 
 @Composable
 fun BottomNavBar(
@@ -78,118 +89,77 @@ fun BottomNavBar(
     onScanClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val itemsLeft = remember {
-        listOf(
-            NavItem("Home",    AppIcons.Home,     TabRoute.Home),
-            NavItem("Classes", AppIcons.Classes,  TabRoute.Classes),
-        )
-    }
-    val itemsRight = remember {
-        listOf(
-            NavItem("Reminders", AppIcons.Reminder, TabRoute.Reminders),
-            NavItem("Settings",  AppIcons.Settings,  TabRoute.Settings),
-        )
-    }
+    // The Figma frame leaves 20dp below the pill; never go below the system nav-bar inset.
+    val bottomMargin = maxOf(PillBottomMargin, WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        contentAlignment = Alignment.BottomCenter,
+            .padding(horizontal = PillSideMargin)
+            .padding(bottom = bottomMargin)
+            .height(FabOverhang + PillHeight),
     ) {
-        // ── Pill ──────────────────────────────────────────────────────────────
-        Row(
+        // ── Pill with tabs ────────────────────────────────────────────────────
+        BoxWithConstraints(
             modifier = Modifier
+                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .height(PillHeight)
-                .appShadow(blur = 10.dp, spread = (-5).dp, cornerRadius = 30.dp)
-                .background(PillBg, RoundedCornerShape(30.dp))
-                .border(0.5.dp, PillBorder, RoundedCornerShape(30.dp))
-                .padding(horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .background(PillColor, RoundedCornerShape(PillRadius)),
         ) {
-            // Left tabs — equal weight
-            itemsLeft.forEach { item ->
-                NavTabItem(
+            val pillWidth = maxWidth
+
+            NavItems.forEach { item ->
+                NavTab(
                     item = item,
                     isSelected = currentTab == item.tab,
                     onClick = { onTabSelected(item.tab) },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.offset(x = pillWidth * item.centerFraction - NavTabWidth / 2),
                 )
             }
 
-            // Centre gap — explicit width = FAB ring so the overlay aligns perfectly
-            Spacer(Modifier.width(FabRingSize))
-
-            // Right tabs — equal weight
-            itemsRight.forEach { item ->
-                NavTabItem(
-                    item = item,
-                    isSelected = currentTab == item.tab,
-                    onClick = { onTabSelected(item.tab) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            // "Scan" label sits under the FAB (Inter SemiBold 10, top = pill top + 46)
+            Text(
+                text = "Scan",
+                fontFamily = Inter,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 10.sp,
+                lineHeight = 12.sp,
+                color = InactiveTint,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = 46.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onScanClick,
+                    ),
+            )
         }
 
-        // ── Scan FAB (cutout ring + yellow button) ────────────────────────────
-        // Column is bottom-aligned. Geometry:
-        //   ScanLabelH (≈26dp) + FabRingSize (68dp) = ≈94dp from box bottom
-        //   FabRing centre = ScanLabelH + FabRingSize/2 = 60dp = PillHeight ✓
-        Column(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // AppBackground ring creates visual "cutout" in the pill
-            Box(
-                modifier = Modifier
-                    .size(FabRingSize)
-                    .background(AppBackground, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(FabSize)
-                        .appShadow(blur = 10.dp, spread = (-3).dp, cornerRadius = FabSize / 2)
-                        .background(UepYellow, CircleShape)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onScanClick,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = if (currentTab == TabRoute.Scan) AppIcons.CameraPhoto else AppIcons.Scan,
-                        contentDescription = if (currentTab == TabRoute.Scan) "Capture" else "Scan",
-                        tint = UepBlue,
-                        modifier = Modifier.size(NavIconSize + 2.dp),
-                    )
-                }
-            }
-            // "Scan" label sits inside the pill gap at the same baseline as other labels
-            Box(
-                modifier = Modifier
-                    .width(FabRingSize)
-                    .height(ScanLabelH),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "Scan",
-                    fontSize = NavLabelSize,
-                    fontWeight = FontWeight.Normal,
-                    color = InactiveTint,
-                    letterSpacing = 0.sp,
-                )
-            }
-        }
+        // ── Scan FAB (85 × 85 Figma asset: #F7F7F7 ring + yellow disc + scan glyph) ──
+        Image(
+            // Scan tab uses the solid-yellow camera variant (Figma "Scan" frame)
+            painter = painterResource(
+                if (currentTab == TabRoute.Scan) R.drawable.ic_nav_scan_fab_camera
+                else R.drawable.ic_nav_scan_fab
+            ),
+            contentDescription = if (currentTab == TabRoute.Scan) "Capture" else "Scan",
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .size(FabSize)
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onScanClick,
+                ),
+        )
     }
 }
 
 @Composable
-private fun NavTabItem(
+private fun NavTab(
     item: NavItem,
     isSelected: Boolean,
     onClick: () -> Unit,
@@ -201,32 +171,38 @@ private fun NavTabItem(
         label = "tint_${item.label}",
     )
 
-    Column(
+    Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .width(NavTabWidth)
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(PillRadius))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
-            )
-            .padding(vertical = 8.dp, horizontal = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+            ),
     ) {
         Icon(
-            imageVector = item.icon,
+            painter = painterResource(item.iconRes),
             contentDescription = item.label,
             tint = tint,
-            modifier = Modifier.size(NavIconSize),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = item.iconTop)
+                .size(item.iconSize),
         )
         Text(
             text = item.label,
-            fontSize = NavLabelSize,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+            fontFamily = Inter,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 8.sp,
+            lineHeight = 10.sp,
             color = tint,
-            letterSpacing = 0.sp,
             maxLines = 1,
-            overflow = TextOverflow.Visible,
+            softWrap = false,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = item.labelTop),
         )
     }
 }

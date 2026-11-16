@@ -1,0 +1,248 @@
+package com.example.eschedule.ui.scan
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.eschedule.R
+import com.example.eschedule.data.ScanDay
+import com.example.eschedule.data.ScannedClass
+import com.example.eschedule.theme.AppBackground
+import com.example.eschedule.theme.Spacing
+import com.example.eschedule.theme.UepBlue
+import com.example.eschedule.ui.components.CardRadius
+import com.example.eschedule.ui.components.FigmaTextMuted
+import com.example.eschedule.ui.components.ScreenMargin
+import com.example.eschedule.ui.components.SheetSaveButton
+import com.example.eschedule.ui.components.appShadow
+
+/**
+ * Review Scan (Figma "Review Scan"): the classes recognised from a photo, grouped by day.
+ * The user can drop wrong rows, then Save (check-in with the backend) or close (discard).
+ *
+ * Stateless: [items] comes from `ScheduleScanRepository.scan`, and every action is a callback,
+ * so wiring a real backend only touches the caller.
+ */
+@Composable
+fun ReviewScanScreen(
+    items: List<ScannedClass>,
+    isSaving: Boolean,
+    onClose: () -> Unit,
+    onSave: () -> Unit,
+    onRemove: (ScannedClass) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val grouped = remember(items) {
+        ScanDay.entries.mapNotNull { day ->
+            items.filter { it.day == day }.takeIf { it.isNotEmpty() }?.let { day to it }
+        }
+    }
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(AppBackground),
+    ) {
+        // ── Header: title · close · save ─────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(start = ScreenMargin, end = ScreenMargin, top = Spacing.lg, bottom = Spacing.md)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Review Scan",
+                fontSize = 20.sp,
+                lineHeight = 30.sp,
+                fontWeight = FontWeight.Bold,
+                color = UepBlue,
+                modifier = Modifier.weight(1f),
+            )
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(Color(0x33000000), CircleShape)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onClose,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_review_close),
+                    contentDescription = "Discard scan",
+                    modifier = Modifier
+                        .size(20.dp)
+                        .rotate(45f),
+                )
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            SheetSaveButton(onClick = { if (!isSaving) onSave() })
+        }
+
+        if (items.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    text = "No classes were found in this photo.\nClose and try scanning again.",
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    color = FigmaTextMuted,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = Spacing.xl),
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = ScreenMargin,
+                    end = ScreenMargin,
+                    bottom = Spacing.lg + navBottom,
+                ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                grouped.forEachIndexed { index, (day, classes) ->
+                    item(key = "label_${day.name}") {
+                        Text(
+                            text = day.label,
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = FigmaTextMuted,
+                            modifier = Modifier.padding(top = if (index == 0) 0.dp else Spacing.md),
+                        )
+                    }
+                    item(key = "card_${day.name}") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .appShadow(cornerRadius = CardRadius)
+                                .background(Color.White, RoundedCornerShape(CardRadius)),
+                        ) {
+                            classes.forEachIndexed { i, cls ->
+                                if (i > 0) {
+                                    Box(
+                                        Modifier
+                                            .padding(horizontal = Spacing.md)
+                                            .fillMaxWidth()
+                                            .height(1.dp)
+                                            .background(Color(0x1A000000)),
+                                    )
+                                }
+                                ScannedClassRow(cls = cls, onRemove = { onRemove(cls) })
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScannedClassRow(
+    cls: ScannedClass,
+    onRemove: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 72.dp)
+            .padding(start = Spacing.md, top = 12.dp, bottom = 12.dp, end = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = cls.title,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = cls.timeRange,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+                color = FigmaTextMuted,
+            )
+            Text(
+                text = cls.location,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+                color = FigmaTextMuted,
+            )
+        }
+        Box {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { menuOpen = true },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_review_more),
+                    contentDescription = "More options",
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Remove from scan", fontSize = 14.sp) },
+                    onClick = {
+                        menuOpen = false
+                        onRemove()
+                    },
+                )
+            }
+        }
+    }
+}

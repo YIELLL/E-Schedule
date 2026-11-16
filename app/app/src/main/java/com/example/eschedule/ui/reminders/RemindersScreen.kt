@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,21 +22,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.eschedule.theme.DividerColor
-import com.example.eschedule.theme.TextTertiary
-import com.example.eschedule.theme.UepBlue
+import androidx.compose.ui.unit.sp
+import com.example.eschedule.theme.Spacing
+import com.example.eschedule.ui.components.CardRadius
 import com.example.eschedule.ui.components.EScheduleFab
 import com.example.eschedule.ui.components.FilterChip
 import com.example.eschedule.ui.components.PageTitle
 import com.example.eschedule.ui.components.ReminderItemData
 import com.example.eschedule.ui.components.ReminderListItem
-import com.example.eschedule.ui.components.SectionHeader
+import com.example.eschedule.ui.components.ScreenMargin
 import com.example.eschedule.ui.components.appShadow
 
 private val FILTERS = listOf("All", "Today", "Week", "Month", "Completed")
+
+/** Figma: completed due-dates are UEP blue @ 60%. */
+private val CompletedDueColor = Color(0x9917376E)
 
 @Composable
 fun RemindersScreen(
@@ -77,23 +81,20 @@ fun RemindersScreen(
         // Outer Column: title fixed, content scrolls
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // ── Sticky page title ─────────────────────────────────────────────
-            PageTitle(
-                title = "Reminders",
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
+            // ── Title (x 30, y 100); chips start 20dp below at y 150
+            PageTitle(title = "Reminders")
 
-            // ── Scrollable content ────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
+                    .verticalScroll(rememberScrollState()),
             ) {
-                // Filter chips — horizontally scrollable so they never wrap
+                // Filter chips: 25dp tall, 10dp apart, x starts at 30
                 Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = ScreenMargin),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
                     FILTERS.forEach { filter ->
                         FilterChip(
@@ -104,71 +105,82 @@ fun RemindersScreen(
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.md))
 
-                // Active reminders card
-                Box(
+                // ── Active reminders card: 48dp rows
+                Column(
                     modifier = Modifier
+                        .padding(horizontal = ScreenMargin)
                         .fillMaxWidth()
-                        .appShadow(cornerRadius = 14.dp)
-                        .background(Color.White, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                        .appShadow(cornerRadius = CardRadius)
+                        .background(Color.White, RoundedCornerShape(CardRadius))
+                        .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
                 ) {
-                    Column {
-                        activeReminders.forEach { reminder ->
+                    activeReminders.forEach { reminder ->
+                        ReminderListItem(
+                            data = reminder.copy(isCompleted = checkedIds.contains(reminder.id)),
+                            onCheckedChange = { checked ->
+                                checkedIds = if (checked) checkedIds + reminder.id
+                                else checkedIds - reminder.id
+                            },
+                            onMoreClick = { onReminderMoreClick(reminder.id) },
+                            onEditClick = { onReminderEditClick(reminder.id) },
+                            onDeleteClick = { /* TODO: hook to data layer */ },
+                        )
+                    }
+                }
+
+                // ── Completed card (y 331): title + rows 15dp apart, washed out with a
+                // white @ 75% "Fade" layer that covers the whole card.
+                if (selectedFilter == "All" || selectedFilter == "Completed") {
+                    Spacer(Modifier.height(Spacing.lg))
+                    Column(
+                        modifier = Modifier
+                            .padding(horizontal = ScreenMargin)
+                            .fillMaxWidth()
+                            .appShadow(cornerRadius = CardRadius)
+                            .background(Color.White, RoundedCornerShape(CardRadius))
+                            .drawWithContent {
+                                drawContent()
+                                drawRoundRect(
+                                    color = Color(0xBFFFFFFF),
+                                    cornerRadius = CornerRadius(CardRadius.toPx()),
+                                )
+                            }
+                            .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
+                    ) {
+                        Text(
+                            text = "Completed & Won’t Do",
+                            fontSize = 12.sp,
+                            lineHeight = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            modifier = Modifier.padding(start = Spacing.sm, top = Spacing.sm, bottom = Spacing.xs),
+                        )
+                        completedReminders.forEach { reminder ->
                             ReminderListItem(
-                                data = reminder.copy(isCompleted = checkedIds.contains(reminder.id)),
-                                onCheckedChange = { checked ->
-                                    checkedIds = if (checked) checkedIds + reminder.id
-                                    else checkedIds - reminder.id
-                                },
+                                data = reminder.copy(isCompleted = false),
+                                onCheckedChange = {},
                                 onMoreClick = { onReminderMoreClick(reminder.id) },
-                                onEditClick = { onReminderEditClick(reminder.id) },
-                                onDeleteClick = { /* TODO: hook to data layer */ },
+                                showMoreButton = false,
+                                dueColor = CompletedDueColor,
+                                minHeight = 44.dp,
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(20.dp))
-
-                // Completed section
-                if (selectedFilter == "All" || selectedFilter == "Completed") {
-                    SectionHeader(
-                        title = "Completed",
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .appShadow(cornerRadius = 14.dp)
-                            .background(Color.White, RoundedCornerShape(12.dp))
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                    ) {
-                        Column {
-                            completedReminders.forEach { reminder ->
-                                Box(modifier = Modifier.graphicsLayer(alpha = 0.45f)) {
-                                    ReminderListItem(
-                                        data = reminder,
-                                        onCheckedChange = {},
-                                        onMoreClick = { onReminderMoreClick(reminder.id) },
-                                        showMoreButton = false,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(96.dp))
+                // Clear the floating "+" button and the nav bar
+                Spacer(Modifier.height(140.dp))
             }
         }
 
+        // ── FAB: 50 × 50 at x 336, y 721 (16dp from the right edge)
         EScheduleFab(
             onClick = onAddReminder,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 120.dp),
+                .padding(end = Spacing.lg, bottom = 104.dp),
         )
     }
 }

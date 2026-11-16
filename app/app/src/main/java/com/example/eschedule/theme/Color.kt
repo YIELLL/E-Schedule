@@ -21,6 +21,7 @@ val TextDisabled = Color(0xFFBBBBBB)
 val AccentBlue    = Color(0xFF3B7DDD)
 val NavActiveBlue = Color(0xFF0088FF)   // nav selected tab
 val ClassTeal     = Color(0xFF00BCD4)
+val ClassCyan     = Color(0xFF00C0E8)   // Figma "accents/cyan" — class blocks on the schedule grid
 
 // State
 val DividerColor = Color(0xFFE0E0E0)
