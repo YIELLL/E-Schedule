@@ -95,7 +95,6 @@ fun AppScaffold(
                     TabRoute.Home -> HomeScreen(
                         onClassClick = { viewClassId = it },
                         onReminderMoreClick = { viewReminderId = it },
-                        onReminderEditClick = { editReminderId = it },
                     )
                     TabRoute.Classes -> ClassesScreen(
                         onClassClick = { viewClassId = it },
@@ -123,7 +122,6 @@ fun AppScaffold(
                     TabRoute.Reminders -> RemindersScreen(
                         onAddReminder = { showAddReminder = true },
                         onReminderMoreClick = { viewReminderId = it },
-                        onReminderEditClick = { editReminderId = it },
                     )
                     TabRoute.Settings -> SettingsScreen(
                         onItemClick = { /* future: navigate to sub-settings */ },

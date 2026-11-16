@@ -3,13 +3,15 @@ package com.example.eschedule.ui.reminders
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -17,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,8 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eschedule.R
 import com.example.eschedule.theme.Spacing
+import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.components.FigmaSheet
 import com.example.eschedule.ui.components.FigmaTextMuted
 import com.example.eschedule.ui.components.OptionDivider
@@ -130,7 +136,7 @@ fun AddReminderSheet(
                 OptionRow("Date", dateText) { showDatePicker = true }
                 OptionDivider()
 
-                // Time row: label (+ picker line while enabled) on the left, toggle on the right
+                // Time row: label (+ picker line while enabled) on the left, switch on the right
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -166,17 +172,23 @@ fun AddReminderSheet(
                             }
                         }
                     }
-                    // Toggle asset (thumb right = on, mirrored = off), 48dp touch target
-                    Image(
-                        painter = painterResource(R.drawable.ic_sheet_toggle),
-                        contentDescription = "Toggle time",
-                        modifier = Modifier
-                            .size(48.dp)
-                            .scale(scaleX = if (timeEnabled) 1f else -1f, scaleY = 1f)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) { timeEnabled = !timeEnabled },
+                    Switch(
+                        checked = timeEnabled,
+                        onCheckedChange = { timeEnabled = it },
+                        // Material's switch is 52 × 32dp; shrink to ~39 × 24dp, anchored to the right edge.
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = 0.75f
+                            scaleY = 0.75f
+                            transformOrigin = TransformOrigin(1f, 0.5f)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = UepBlue,
+                            checkedBorderColor = Color.Transparent,
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = Color(0xFFD0D3D9),
+                            uncheckedBorderColor = Color.Transparent,
+                        ),
                     )
                 }
             }
@@ -223,38 +235,40 @@ fun ViewReminderSheet(
         }
 
         SheetGap(Spacing.md)
-        Row(verticalAlignment = Alignment.Top) {
+        // Accent bar beside the title + detail lines (same treatment as Class Details)
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             Box(
                 modifier = Modifier
                     .padding(top = 5.dp)
-                    .size(20.dp)
-                    .border(1.5.dp, Color(0x40000000), RoundedCornerShape(3.dp)),
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(UepBlue, RoundedCornerShape(2.dp)),
             )
             Spacer(Modifier.width(12.dp))
-            Text(
-                text = "Pag laba",
-                fontSize = 20.sp,
-                lineHeight = 30.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = SheetTextValue,
-            )
-        }
-        SheetGap(Spacing.sm)
-        Column {
-            Text(
-                text = "Today",
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.Light,
-                color = FigmaTextMuted,
-            )
-            Text(
-                text = "12:51 PM",
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.Light,
-                color = FigmaTextMuted,
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Pag laba",
+                    fontSize = 20.sp,
+                    lineHeight = 30.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = SheetTextValue,
+                )
+                Spacer(Modifier.height(Spacing.xs))
+                Text(
+                    text = "Today",
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Light,
+                    color = FigmaTextMuted,
+                )
+                Text(
+                    text = "12:51 PM",
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Light,
+                    color = FigmaTextMuted,
+                )
+            }
         }
 
         SheetGap(Spacing.lg)

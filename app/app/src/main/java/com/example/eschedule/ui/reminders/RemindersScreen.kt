@@ -47,7 +47,6 @@ private val CompletedDueColor = Color(0x9917376E)
 fun RemindersScreen(
     onAddReminder: () -> Unit,
     onReminderMoreClick: (String) -> Unit,
-    onReminderEditClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val activeReminders = remember {
@@ -124,8 +123,6 @@ fun RemindersScreen(
                                 else checkedIds - reminder.id
                             },
                             onMoreClick = { onReminderMoreClick(reminder.id) },
-                            onEditClick = { onReminderEditClick(reminder.id) },
-                            onDeleteClick = { /* TODO: hook to data layer */ },
                         )
                     }
                 }

@@ -1,12 +1,10 @@
 package com.example.eschedule.ui.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,23 +21,15 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -147,7 +137,8 @@ fun ClassCard(
 // ─────────────────────────────────────────────────────────────────────────────
 // ReminderItemData + ReminderListItem
 //   Row (≥ 48dp tall for touch): 40dp checkbox hit-area (18dp box) · title (Poppins 12, black) ·
-//   time (Poppins 11, black 50%) · [40dp more-button hit-area with the 20dp dots icon]
+//   time (Poppins 11, black 50%) · 40dp more-button hit-area with the 20dp dots icon.
+//   The three-dot button is the only entry point to the reminder's details (no long-press menu).
 // ─────────────────────────────────────────────────────────────────────────────
 
 data class ReminderItemData(
@@ -157,106 +148,67 @@ data class ReminderItemData(
     val isCompleted: Boolean = false,
 )
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ReminderListItem(
     data: ReminderItemData,
     onCheckedChange: (Boolean) -> Unit,
     onMoreClick: () -> Unit,
-    onEditClick: (() -> Unit)? = null,
-    onDeleteClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showMoreButton: Boolean = true,
     dueColor: Color = FigmaTextMuted,
     minHeight: Dp = Spacing.touchTarget,
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-
-    Box(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {},
-                onLongClick = {
-                    if (onEditClick != null || onDeleteClick != null) showMenu = true
-                },
-            ),
+            .heightIn(min = minHeight),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
+        FigmaCheckbox(
+            checked = data.isCompleted,
+            onCheckedChange = onCheckedChange,
+        )
+        Text(
+            text = data.title,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color.Black,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = minHeight),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            FigmaCheckbox(
-                checked = data.isCompleted,
-                onCheckedChange = onCheckedChange,
-            )
-            Text(
-                text = data.title,
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.Normal,
-                color = Color.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                .weight(1f)
+                .padding(start = 2.dp),
+        )
+        Spacer(Modifier.width(Spacing.sm))
+        Text(
+            text = data.dueLabel,
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.Normal,
+            color = dueColor,
+            maxLines = 1,
+        )
+        if (showMoreButton) {
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 2.dp),
-            )
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onMoreClick,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_more_dots),
+                    contentDescription = "More options",
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        } else {
             Spacer(Modifier.width(Spacing.sm))
-            Text(
-                text = data.dueLabel,
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
-                fontWeight = FontWeight.Normal,
-                color = dueColor,
-                maxLines = 1,
-            )
-            if (showMoreButton) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onMoreClick,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_more_dots),
-                        contentDescription = "More options",
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            } else {
-                Spacer(Modifier.width(Spacing.sm))
-            }
-        }
-
-        // Long-press context menu
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-        ) {
-            if (onEditClick != null) {
-                DropdownMenuItem(
-                    text = { Text("Edit", fontSize = 14.sp) },
-                    leadingIcon = { Icon(AppIcons.Edit, null, Modifier.size(18.dp)) },
-                    onClick = { onEditClick(); showMenu = false },
-                )
-            }
-            if (onDeleteClick != null) {
-                DropdownMenuItem(
-                    text = { Text("Delete", fontSize = 14.sp, color = Color(0xFFE53935)) },
-                    leadingIcon = { Icon(AppIcons.Delete, null, Modifier.size(18.dp), tint = Color(0xFFE53935)) },
-                    onClick = { onDeleteClick(); showMenu = false },
-                )
-            }
         }
     }
 }

@@ -35,7 +35,6 @@ import com.example.eschedule.ui.components.appShadow
 fun HomeScreen(
     onClassClick: (String) -> Unit,
     onReminderMoreClick: (String) -> Unit,
-    onReminderEditClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val currentClass = remember {
@@ -131,9 +130,6 @@ fun HomeScreen(
                             else checkedIds - reminder.id
                         },
                         onMoreClick = { onReminderMoreClick(reminder.id) },
-                        onEditClick = { onReminderEditClick(reminder.id) },
-                        onDeleteClick = { /* TODO: hook to data layer */ },
-                        showMoreButton = false,
                     )
                 }
             }

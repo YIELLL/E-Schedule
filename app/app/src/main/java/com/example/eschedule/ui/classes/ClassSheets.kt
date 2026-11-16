@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,7 +37,6 @@ import androidx.compose.ui.unit.sp
 import com.example.eschedule.R
 import com.example.eschedule.theme.Spacing
 import com.example.eschedule.theme.UepBlue
-import com.example.eschedule.ui.components.CardRadius
 import com.example.eschedule.ui.components.FigmaSheet
 import com.example.eschedule.ui.components.FigmaTextMuted
 import com.example.eschedule.ui.components.OptionDivider
