@@ -254,14 +254,6 @@ fun EmptyAction(
     }
 }
 
-/** Two [EmptyAction]s side by side. */
-@Composable
-fun EmptyActionRow(content: @Composable () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        content()
-    }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // EmptyCard — compact in-list placeholder: small graphic + title + one line of help.
 // ─────────────────────────────────────────────────────────────────────────────

@@ -43,9 +43,6 @@ class KeyHealthStore(context: Context) {
             .put("hash", key.value.hashCode()).put("reason", reason)
         prefs.edit().putString(key.id, o.toString()).apply()
     }
-
-    fun clear(keyId: String) = prefs.edit().remove(keyId).apply()
-    fun clearAll() = prefs.edit().clear().apply()
 }
 
 /**

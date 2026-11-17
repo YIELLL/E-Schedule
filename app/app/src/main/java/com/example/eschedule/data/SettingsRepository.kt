@@ -82,9 +82,6 @@ class SettingsRepository(context: Context) {
     )
     val activeApiKeyId: StateFlow<String?> = _activeApiKeyId
 
-    /** The active key's value, for the code that talks to the recognition service. */
-    fun activeApiKeyValue(): String? = _apiKeys.value.firstOrNull { it.id == _activeApiKeyId.value }?.value
-
     /** Adds a key (id = null) or updates an existing one. The first key added becomes active. */
     fun saveApiKey(id: String?, label: String, value: String) {
         val entry = ApiKeyEntry(id ?: UUID.randomUUID().toString(), label.trim(), value.trim())
