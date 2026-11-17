@@ -216,7 +216,8 @@ class RemindersViewModel(private val repository: ReminderRepository) : ViewModel
 // ─── Scan ────────────────────────────────────────────────────────────────────
 
 class ScanViewModel(private val scanner: ScheduleScanner) : ViewModel() {
-    suspend fun scan(jpeg: ByteArray): List<ScannedClass> = scanner.scan(jpeg)
+    suspend fun scan(image: ByteArray, rotationDegrees: Int? = null): List<ScannedClass> =
+        scanner.scan(image, rotationDegrees)
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────

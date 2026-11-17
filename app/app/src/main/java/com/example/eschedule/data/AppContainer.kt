@@ -2,6 +2,10 @@ package com.example.eschedule.data
 
 import android.content.Context
 import com.example.eschedule.data.local.AppDatabase
+import com.example.eschedule.data.scan.GeminiClient
+import com.example.eschedule.data.scan.GeminiScheduleScanner
+import com.example.eschedule.data.scan.KeyHealthStore
+import com.example.eschedule.data.scan.KeyRotator
 import com.example.eschedule.notify.NotificationScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +24,6 @@ import java.time.LocalDateTime
 
 /**
  * Manual dependency container: one database and one repository of each kind for the whole app.
- * Swap [scanner] for the real recognition backend when it is ready.
  */
 class AppContainer(context: Context) {
 
@@ -29,8 +32,8 @@ class AppContainer(context: Context) {
 
     val classRepository = ClassRepository(database.classDao())
     val reminderRepository = ReminderRepository(database.reminderDao())
-    val scanner: ScheduleScanner = DemoScheduleScanner()
     val settings = SettingsRepository(appContext)
+    val scanner: ScheduleScanner = GeminiScheduleScanner(KeyRotator(settings, KeyHealthStore(appContext)), GeminiClient())
 
     // ── Class / reminder alerts ──────────────────────────────────────────────
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

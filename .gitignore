@@ -27,3 +27,6 @@ Thumbs.db
 # ── Misc ────────────────────────────────────────────────────────────────────────
 *.log
 *.tmp
+
+# ── Sample photos for API probing (contain personal info) ─────────────────────
+samples/

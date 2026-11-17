@@ -31,7 +31,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import android.widget.Toast
 import androidx.compose.material3.Icon
+import com.example.eschedule.data.AppLog
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -71,7 +73,8 @@ fun ScanScreen(
     captureRequested: Boolean = false,
     onCaptureHandled: () -> Unit = {},
     /** Called with the captured photo as JPEG bytes — hand it to `ScheduleScanRepository.scan`. */
-    onImageCaptured: (ByteArray) -> Unit = {},
+    /** The photo (JPEG) and the clockwise turn that makes it upright. */
+    onImageCaptured: (ByteArray, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val context        = LocalContext.current
@@ -122,10 +125,14 @@ fun ScanScreen(
                             // ImageCapture's default format is JPEG: plane 0 holds the whole file.
                             val buffer = image.planes[0].buffer
                             val bytes = ByteArray(buffer.remaining()).also { buffer.get(it) }
+                            val rotation = image.imageInfo.rotationDegrees
                             image.close()
-                            onImageCaptured(bytes)
+                            onImageCaptured(bytes, rotation)
                         }
-                        override fun onError(exc: ImageCaptureException) { /* log */ }
+                        override fun onError(exc: ImageCaptureException) {
+                            AppLog.e("Camera", "Taking the photo failed (code ${exc.imageCaptureError})", exc)
+                            Toast.makeText(context, "Couldn't take the photo. Please try again.", Toast.LENGTH_SHORT).show()
+                        }
                     },
                 )
             }

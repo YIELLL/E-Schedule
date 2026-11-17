@@ -37,6 +37,8 @@ import com.example.eschedule.data.AppLog
 import com.example.eschedule.data.ImportPlan
 import com.example.eschedule.data.SaveCheck
 import com.example.eschedule.data.ScannedClass
+import com.example.eschedule.data.scan.ScanException
+import kotlinx.coroutines.CancellationException
 import com.example.eschedule.data.model.SchoolClass
 import com.example.eschedule.data.toDraft
 import com.example.eschedule.data.toScannedRows
@@ -88,6 +90,7 @@ fun AppScaffold(
     var isScanning by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
     var reviewItems by remember { mutableStateOf<List<ScannedClass>?>(null) }
+    var scanFailure by remember { mutableStateOf<ScanFailure?>(null) }
 
     // Sheet / dialog state — null = closed
     var showAddReminder by remember { mutableStateOf(false) }
@@ -110,6 +113,24 @@ fun AppScaffold(
     var pendingImport by remember { mutableStateOf<ImportPlan?>(null) }
 
     fun toast(message: String) = Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+
+    /** Reads a captured photo; on failure shows the reason with a retry. */
+    fun runScan(image: ByteArray, rotation: Int?) {
+        scope.launch {
+            isScanning = true
+            runCatching { scanVm.scan(image, rotation) }
+                .onSuccess { reviewItems = it }
+                .onFailure {
+                    if (it is CancellationException) throw it
+                    val message = (it as? ScanException)?.userMessage ?: "Couldn't read the schedule. Please try again."
+                    if (it !is ScanException) AppLog.e("Scan", "Reading the captured schedule failed", it)
+                    scanFailure = ScanFailure(message, image, rotation, canRetry = (it as? ScanException)?.kind.let { kind ->
+                        kind != ScanException.Kind.NoKey && kind != ScanException.Kind.BadImage
+                    })
+                }
+            isScanning = false
+        }
+    }
 
     /** Saves [cls] unless it duplicates or clashes with an existing class (then it refuses / asks). */
     fun saveClass(cls: SchoolClass, onDone: () -> Unit) {
@@ -192,18 +213,7 @@ fun AppScaffold(
                     TabRoute.Scan -> ScanScreen(
                         captureRequested = captureRequested,
                         onCaptureHandled = { captureRequested = false },
-                        onImageCaptured = { jpeg ->
-                            scope.launch {
-                                isScanning = true
-                                runCatching { scanVm.scan(jpeg) }
-                                    .onSuccess { reviewItems = it }
-                                    .onFailure {
-                                        AppLog.e("Scan", "Reading the captured schedule failed", it)
-                                        toast("Couldn't read the schedule. Please try again.")
-                                    }
-                                isScanning = false
-                            }
-                        },
+                        onImageCaptured = { jpeg, rotation -> runScan(jpeg, rotation) },
                     )
                     TabRoute.Reminders -> RemindersScreen(
                         state = remindersState,
@@ -433,6 +443,31 @@ fun AppScaffold(
         }
     }
 
+    // ─── The photo couldn't be read: say why, offer to try again ─────────────────
+    scanFailure?.let { failure ->
+        AlertDialog(
+            onDismissRequest = { scanFailure = null },
+            containerColor = AppTheme.colors.surface,
+            title = { Text("Couldn't read the schedule") },
+            text = { Text(failure.message) },
+            confirmButton = {
+                if (failure.canRetry) {
+                    TextButton(
+                        onClick = {
+                            scanFailure = null
+                            runScan(failure.image, failure.rotation)
+                        },
+                    ) { Text("Try again") }
+                } else {
+                    TextButton(onClick = { scanFailure = null }) { Text("OK") }
+                }
+            },
+            dismissButton = if (failure.canRetry) {
+                { TextButton(onClick = { scanFailure = null }) { Text("Cancel") } }
+            } else null,
+        )
+    }
+
     // ─── A class that clashes with existing ones: replace, or go back and change it ───
     pendingClassSave?.let { pending ->
         val plural = pending.conflicts.size > 1
@@ -534,3 +569,11 @@ private fun ConfirmDeleteDialog(
         },
     )
 }
+
+/** A scan that failed: what to tell the user, and the photo to retry with. */
+private class ScanFailure(
+    val message: String,
+    val image: ByteArray,
+    val rotation: Int?,
+    val canRetry: Boolean,
+)

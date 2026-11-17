@@ -61,8 +61,8 @@ class SettingsRepository(context: Context) {
 
     // Appearance
     private val _themeMode = MutableStateFlow(
-        runCatching { ThemeMode.valueOf(prefs.getString(KEY_THEME, ThemeMode.System.name).orEmpty()) }
-            .getOrDefault(ThemeMode.System)
+        runCatching { ThemeMode.valueOf(prefs.getString(KEY_THEME, ThemeMode.Light.name).orEmpty()) }
+            .getOrDefault(ThemeMode.Light)
     )
     val themeMode: StateFlow<ThemeMode> = _themeMode
 
@@ -139,7 +139,7 @@ class SettingsRepository(context: Context) {
     fun reset() {
         prefs.edit().clear().apply()
         _notifications.value = NotificationPrefs()
-        _themeMode.value = ThemeMode.System
+        _themeMode.value = ThemeMode.Light
         _apiKeys.value = emptyList()
         _activeApiKeyId.value = null
     }

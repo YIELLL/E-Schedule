@@ -81,11 +81,11 @@ class NotificationScheduler(private val context: Context) {
         return null
     }
 
-    /** All-day reminders alert at 9:00 AM on their day. */
+    /** All-day reminders alert at 8:00 AM on their day. */
     private fun reminderAlarm(reminder: Reminder, prefs: NotificationPrefs, now: LocalDateTime): Planned? {
         if (reminder.completed) return null
         val lead = prefs.reminderLeadMinutes.toLong()
-        val due = LocalDateTime.of(reminder.date, reminder.time ?: LocalTime.of(9, 0))
+        val due = LocalDateTime.of(reminder.date, reminder.time ?: LocalTime.of(8, 0))
         val trigger = due.minusMinutes(lead)
         if (!trigger.isAfter(now)) return null
 

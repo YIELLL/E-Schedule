@@ -1,7 +1,6 @@
 package com.example.eschedule.data
 
 import com.example.eschedule.data.model.SchoolClass
-import kotlinx.coroutines.delay
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -41,41 +40,20 @@ data class ScannedClass(
 )
 
 /**
- * Backend seam for reading a photographed schedule.
- *
- * Implement this with the real recognition service (on-device OCR or a server) and hand it to
- * `AppContainer`. Saving the reviewed result is done locally through [ClassRepository].
+ * Backend seam for reading a photographed schedule. The live implementation is
+ * `GeminiScheduleScanner`; saving the reviewed result is done locally through [ClassRepository].
  */
 interface ScheduleScanner {
     /**
-     * Sends the captured photo ([jpeg] bytes) for recognition and returns the classes found.
-     * Throw any exception on failure — the UI shows a retry message.
+     * Reads the captured photo ([image] bytes: JPEG, or HEIC on API 28+) and returns the classes found,
+     * or an empty list when the photo holds none. [rotationDegrees] is the clockwise turn that makes the
+     * picture upright when the caller knows it (the camera does); null means "read it from the file".
+     * Throws `ScanException` (with a message safe to show) on failure.
      */
-    suspend fun scan(jpeg: ByteArray): List<ScannedClass>
+    suspend fun scan(image: ByteArray, rotationDegrees: Int? = null): List<ScannedClass>
 }
 
-/**
- * Stand-in until the recognition backend exists: ignores the photo and returns the sample
- * schedule from the design so the scan → review → save flow can be exercised end to end.
- */
-class DemoScheduleScanner : ScheduleScanner {
-    override suspend fun scan(jpeg: ByteArray): List<ScannedClass> {
-        delay(800) // pretend to upload + parse
-        return listOf(
-            ScannedClass("m1", "SIA101 - System Integration & Architecture", "8:00 AM - 9:00 AM", "CSFLD22", ScanDay.Monday),
-            ScannedClass("m2", "IPT101 - Integrative Programming & Technologies 1", "1:00 PM - 2:00 PM", "CSFLD24", ScanDay.Monday),
-            ScannedClass("m3", "ITS101 - IT Service Management", "3:00 PM - 4:00 PM", "CSFLD22", ScanDay.Monday),
-            ScannedClass("m4", "NET102 - Networking 2", "4:00 PM - 7:00 PM", "L4", ScanDay.Monday),
-            ScannedClass("t1", "IT102 - Mobile Application Development", "8:00 AM - 9:00 AM", "CSFLD22", ScanDay.Tuesday),
-            ScannedClass("t2", "IM101 - Fundamentals of Database", "10:00 AM - 12:00 PM", "CSFLD7", ScanDay.Tuesday),
-            ScannedClass("t3", "NET102 - Networking 2", "2:00 PM - 3:00 PM", "CSFLD7", ScanDay.Tuesday),
-            ScannedClass("w1", "SIA101 - System Integration & Architecture", "8:00 AM - 9:00 AM", "CSFLD22", ScanDay.Wednesday),
-            ScannedClass("w2", "GE ELEC 1 - Environmental Science", "9:00 AM - 12:00 PM", "CSFLD22", ScanDay.Wednesday),
-        )
-    }
-}
-
-private val scanTimeFormat = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
+internal val scanTimeFormat = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
 
 /** "8:00 AM - 9:00 AM" → start and end, or null when it can't be read or the end isn't after the start. */
 fun parseTimeRange(range: String): Pair<LocalTime, LocalTime>? {
