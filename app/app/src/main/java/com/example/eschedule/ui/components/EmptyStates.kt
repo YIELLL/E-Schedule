@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eschedule.theme.ClassCyan
 import com.example.eschedule.theme.Spacing
-import com.example.eschedule.theme.UepBlue
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.theme.UepYellow
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,20 +65,21 @@ enum class EmptyArt {
     Inbox,
 }
 
-private val ArtTint = UepBlue.copy(alpha = 0.08f)
-
 @Composable
 fun EmptyIllustration(
     art: EmptyArt,
     modifier: Modifier = Modifier,
     size: Dp = 120.dp,
 ) {
+    // The drawing runs outside composition, so the palette is read here and passed in.
+    val blue = AppTheme.colors.primary
+    val surface = AppTheme.colors.surface
     Canvas(modifier = modifier.size(size)) {
         scale(this.size.minDimension / 120f, pivot = Offset.Zero) {
             when (art) {
-                EmptyArt.Calendar -> drawCalendarArt()
-                EmptyArt.Reminders -> drawRemindersArt()
-                EmptyArt.Inbox -> drawInboxArt()
+                EmptyArt.Calendar -> drawCalendarArt(blue, surface)
+                EmptyArt.Reminders -> drawRemindersArt(blue)
+                EmptyArt.Inbox -> drawInboxArt(blue, surface)
             }
         }
     }
@@ -97,16 +98,16 @@ private fun DrawScope.drawSparkle(center: Offset, radius: Float, color: Color) {
     drawPath(path, color)
 }
 
-private fun DrawScope.drawCalendarArt() {
-    drawCircle(ArtTint, radius = 56f, center = Offset(60f, 62f))
+private fun DrawScope.drawCalendarArt(blue: Color, surface: Color) {
+    drawCircle(blue.copy(alpha = 0.08f), radius = 56f, center = Offset(60f, 62f))
 
     // Page
-    drawRoundRect(Color.White, Offset(26f, 36f), Size(68f, 58f), CornerRadius(9f))
-    drawRoundRect(UepBlue.copy(alpha = 0.22f), Offset(26f, 36f), Size(68f, 58f), CornerRadius(9f), style = Stroke(2f))
+    drawRoundRect(surface, Offset(26f, 36f), Size(68f, 58f), CornerRadius(9f))
+    drawRoundRect(blue.copy(alpha = 0.22f), Offset(26f, 36f), Size(68f, 58f), CornerRadius(9f), style = Stroke(2f))
 
     // Header band (rounded top, square bottom)
-    drawRoundRect(UepBlue, Offset(26f, 36f), Size(68f, 18f), CornerRadius(9f))
-    drawRect(UepBlue, Offset(26f, 46f), Size(68f, 8f))
+    drawRoundRect(blue, Offset(26f, 36f), Size(68f, 18f), CornerRadius(9f))
+    drawRect(blue, Offset(26f, 46f), Size(68f, 8f))
 
     // Binder rings
     drawRoundRect(UepYellow, Offset(41f, 28f), Size(7f, 15f), CornerRadius(3.5f))
@@ -115,7 +116,7 @@ private fun DrawScope.drawCalendarArt() {
     // Empty day slots, one highlighted
     for (row in 0..1) {
         for (col in 0..2) {
-            drawCircle(UepBlue.copy(alpha = 0.14f), 4.5f, Offset(42f + col * 18f, 67f + row * 14f))
+            drawCircle(blue.copy(alpha = 0.14f), 4.5f, Offset(42f + col * 18f, 67f + row * 14f))
         }
     }
     drawCircle(ClassCyan, 4.5f, Offset(60f, 67f))
@@ -124,11 +125,11 @@ private fun DrawScope.drawCalendarArt() {
     drawSparkle(Offset(20f, 52f), 4.5f, ClassCyan)
 }
 
-private fun DrawScope.drawRemindersArt() {
+private fun DrawScope.drawRemindersArt(blue: Color) {
     val c = Offset(60f, 60f)
-    drawCircle(ArtTint, radius = 56f, center = c)
-    drawCircle(UepBlue.copy(alpha = 0.12f), radius = 38f, center = c)
-    drawCircle(UepBlue, radius = 29f, center = c)
+    drawCircle(blue.copy(alpha = 0.08f), radius = 56f, center = c)
+    drawCircle(blue.copy(alpha = 0.12f), radius = 38f, center = c)
+    drawCircle(blue, radius = 29f, center = c)
 
     val check = Path().apply {
         moveTo(47f, 61f)
@@ -140,27 +141,27 @@ private fun DrawScope.drawRemindersArt() {
     // Confetti
     drawCircle(UepYellow, 4f, Offset(22f, 34f))
     drawCircle(ClassCyan, 3.5f, Offset(98f, 44f))
-    drawCircle(UepBlue.copy(alpha = 0.35f), 3f, Offset(28f, 92f))
+    drawCircle(blue.copy(alpha = 0.35f), 3f, Offset(28f, 92f))
     drawCircle(UepYellow, 3f, Offset(94f, 92f))
     drawSparkle(Offset(96f, 24f), 6f, UepYellow)
     drawSparkle(Offset(20f, 70f), 4f, ClassCyan)
 }
 
-private fun DrawScope.drawInboxArt() {
-    drawCircle(ArtTint, radius = 56f, center = Offset(60f, 62f))
+private fun DrawScope.drawInboxArt(blue: Color, surface: Color) {
+    drawCircle(blue.copy(alpha = 0.08f), radius = 56f, center = Offset(60f, 62f))
 
     // Board
-    drawRoundRect(Color.White, Offset(32f, 30f), Size(56f, 68f), CornerRadius(9f))
-    drawRoundRect(UepBlue.copy(alpha = 0.22f), Offset(32f, 30f), Size(56f, 68f), CornerRadius(9f), style = Stroke(2f))
+    drawRoundRect(surface, Offset(32f, 30f), Size(56f, 68f), CornerRadius(9f))
+    drawRoundRect(blue.copy(alpha = 0.22f), Offset(32f, 30f), Size(56f, 68f), CornerRadius(9f), style = Stroke(2f))
 
     // Clip
-    drawRoundRect(UepBlue, Offset(46f, 24f), Size(28f, 14f), CornerRadius(7f))
+    drawRoundRect(blue, Offset(46f, 24f), Size(28f, 14f), CornerRadius(7f))
     drawCircle(UepYellow, 3f, Offset(60f, 31f))
 
     // Empty lines
     for (i in 0..2) {
         val width = if (i == 2) 22f else 36f
-        drawRoundRect(UepBlue.copy(alpha = 0.14f), Offset(42f, 52f + i * 13f), Size(width, 5f), CornerRadius(2.5f))
+        drawRoundRect(blue.copy(alpha = 0.14f), Offset(42f, 52f + i * 13f), Size(width, 5f), CornerRadius(2.5f))
     }
 
     drawSparkle(Offset(94f, 40f), 6f, UepYellow)
@@ -198,7 +199,7 @@ fun EmptyState(
                     fontSize = 16.sp,
                     lineHeight = 24.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xBF000000),
+                    color = AppTheme.colors.text75,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(6.dp))
@@ -232,8 +233,8 @@ fun EmptyAction(
             .heightIn(min = 44.dp)
             .clip(shape)
             .then(
-                if (primary) Modifier.background(UepBlue, shape)
-                else Modifier.border(1.5.dp, UepBlue.copy(alpha = 0.5f), shape)
+                if (primary) Modifier.background(AppTheme.colors.primary, shape)
+                else Modifier.border(1.5.dp, AppTheme.colors.title.copy(alpha = 0.5f), shape)
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -248,7 +249,7 @@ fun EmptyAction(
             fontSize = 12.sp,
             lineHeight = 18.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (primary) Color.White else UepBlue,
+            color = if (primary) Color.White else AppTheme.colors.title,
         )
     }
 }
@@ -282,7 +283,7 @@ fun EmptyCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .appShadow(cornerRadius = CardRadius)
-                .background(Color.White, RoundedCornerShape(CardRadius))
+                .background(AppTheme.colors.surface, RoundedCornerShape(CardRadius))
                 .padding(horizontal = Spacing.md, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -294,7 +295,7 @@ fun EmptyCard(
                     fontSize = 12.sp,
                     lineHeight = 18.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xBF000000),
+                    color = AppTheme.colors.text75,
                 )
                 Text(
                     text = message,

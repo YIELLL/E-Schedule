@@ -24,6 +24,14 @@ data class SchoolClass(
 
     fun meetsOn(date: LocalDate): Boolean =
         date.dayOfWeek in days && !date.isBefore(startDate) && !date.isAfter(endDate)
+
+    /**
+     * True when the class's date range touches the week [weekStart]..[weekEnd]. The weekly chart uses
+     * this so the repeat pattern shows on every listed weekday of that week — including days that
+     * already passed — instead of only on today and later.
+     */
+    fun runsDuringWeek(weekStart: LocalDate, weekEnd: LocalDate): Boolean =
+        !startDate.isAfter(weekEnd) && !endDate.isBefore(weekStart)
 }
 
 /** Where a reminder stands: still open, finished, or dropped ("won't do"). */

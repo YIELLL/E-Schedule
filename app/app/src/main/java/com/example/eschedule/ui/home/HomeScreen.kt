@@ -33,9 +33,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.data.model.ReminderStatus
 import com.example.eschedule.theme.Spacing
-import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.HomeUiState
 import com.example.eschedule.ui.components.AnimatedReminderRow
 import com.example.eschedule.ui.components.CardRadius
@@ -155,7 +155,7 @@ fun HomeScreen(
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = UepBlue,
+                            color = AppTheme.colors.title,
                             modifier = Modifier
                                 .heightIn(min = 32.dp)
                                 .clickable(
@@ -180,7 +180,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .appShadow(cornerRadius = CardRadius)
-                                .background(Color.White, RoundedCornerShape(CardRadius))
+                                .background(AppTheme.colors.surface, RoundedCornerShape(CardRadius))
                                 .clip(RoundedCornerShape(CardRadius))
                                 .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
                         ) {

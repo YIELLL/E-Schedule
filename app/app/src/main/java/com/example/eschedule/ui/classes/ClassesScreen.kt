@@ -56,11 +56,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.R
 import com.example.eschedule.data.minuteTicker
 import com.example.eschedule.theme.ClassCyan
 import com.example.eschedule.theme.Spacing
-import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.components.EScheduleFab
 import com.example.eschedule.ui.components.EmptyArt
 import com.example.eschedule.ui.components.EmptyState
@@ -116,6 +116,7 @@ fun ClassesScreen(
     // Current time in fractional hours (e.g. 12.5 = 12:30 PM)
     val now by remember { minuteTicker() }.collectAsState(initial = LocalDateTime.now())
     val currentHour = now.hour + now.minute / 60f
+    val todayIndex = now.dayOfWeek.value - 1      // 0 = Mon … 6 = Sun
 
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -182,17 +183,24 @@ fun ClassesScreen(
                             modifier = Modifier.width(gridWidth),
                             horizontalArrangement = Arrangement.spacedBy(COL_GAP),
                         ) {
-                            DAYS.forEach { day ->
+                            DAYS.forEachIndexed { index, day ->
+                                val isToday = index == todayIndex
                                 Text(
                                     text = day,
                                     fontSize = 12.sp,
                                     lineHeight = 18.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    color = Color.Black,
+                                    fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (isToday) AppTheme.colors.title else AppTheme.colors.text,
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
                                     softWrap = false,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(
+                                            if (isToday) AppTheme.colors.primary.copy(alpha = 0.16f) else Color.Transparent,
+                                            RoundedCornerShape(9.dp),
+                                        )
+                                        .padding(vertical = 2.dp),
                                 )
                             }
                         }
@@ -253,7 +261,7 @@ fun ClassesScreen(
             Box(
                 modifier = Modifier
                     .size(width = 96.dp, height = 40.dp)
-                    .background(UepBlue, RoundedCornerShape(20.dp))
+                    .background(AppTheme.colors.primary, RoundedCornerShape(20.dp))
                     .clip(RoundedCornerShape(20.dp))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -351,7 +359,7 @@ private fun WeeklyGrid(
                             .offset(y = yOf(hour.toFloat()))
                             .width(gridWidth)
                             .height(1.dp)
-                            .background(Color(0x1A000000)),
+                            .background(AppTheme.colors.hairline),
                     )
                 }
 

@@ -43,9 +43,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.R
 import com.example.eschedule.theme.Spacing
-import com.example.eschedule.theme.UepBlue
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bottom-sheet building blocks shared by the Class and Reminder sheets.
@@ -61,8 +61,10 @@ val SheetInset = Spacing.lg
 private val SheetScrim = Color(0xE0000000)            // #1E1E1E over #F7F7F7
 private val SaveFill = Color(0xBF0088FF)              // rgba(0,136,255,0.75)
 
-val SheetTextValue = Color(0xBF000000)                // black @ 75% — entered values
-val SheetTextPlaceholder = Color(0x40000000)          // black @ 25% — placeholders
+val SheetTextValue: Color                              // entered values (black @ 75% in light mode)
+    @Composable get() = AppTheme.colors.text75
+val SheetTextPlaceholder: Color                        // placeholders (black @ 25% in light mode)
+    @Composable get() = AppTheme.colors.placeholder
 
 /** Subtle "you can swipe me away" pill shown at the top of every sheet. */
 @Composable
@@ -71,7 +73,7 @@ fun SheetDragPill() {
         modifier = Modifier
             .padding(top = 12.dp, bottom = Spacing.sm)
             .size(width = 36.dp, height = 4.dp)
-            .background(Color(0x33000000), RoundedCornerShape(2.dp)),
+            .background(AppTheme.colors.controlFill, RoundedCornerShape(2.dp)),
     )
 }
 
@@ -85,7 +87,7 @@ fun FigmaSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor = Color(0xFFF7F7F7),
+        containerColor = AppTheme.colors.background,
         scrimColor = SheetScrim,
         tonalElevation = 0.dp,
         dragHandle = { SheetDragPill() },
@@ -118,7 +120,7 @@ fun SheetHeader(
             fontSize = 20.sp,
             lineHeight = 30.sp,
             fontWeight = FontWeight.Bold,
-            color = UepBlue,
+            color = AppTheme.colors.title,
             modifier = Modifier.weight(1f),
         )
         trailing()
@@ -159,7 +161,7 @@ fun SheetCircleAction(
     Box(
         modifier = Modifier
             .size(36.dp)
-            .background(Color(0x33000000), CircleShape)
+            .background(AppTheme.colors.controlFill, CircleShape)
             .clip(CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -202,7 +204,7 @@ fun SheetCard(
         modifier = modifier
             .fillMaxWidth()
             .appShadow(cornerRadius = CardRadius)
-            .background(Color.White, shape),
+            .background(AppTheme.colors.surface, shape),
         content = content,
     )
 }
@@ -222,7 +224,7 @@ fun SheetTitleField(
             modifier = Modifier
                 .width(4.dp)
                 .fillMaxHeight()
-                .background(UepBlue, RoundedCornerShape(2.dp)),
+                .background(AppTheme.colors.primary, RoundedCornerShape(2.dp)),
         )
         Spacer(Modifier.width(12.dp))
         SheetCard(modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
@@ -235,7 +237,7 @@ fun SheetTitleField(
                     fontWeight = FontWeight.Medium,
                     color = SheetTextValue,
                 ),
-                cursorBrush = SolidColor(UepBlue),
+                cursorBrush = SolidColor(AppTheme.colors.primary),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = Spacing.md, vertical = 13.dp),
@@ -281,7 +283,7 @@ fun SheetIconField(
                 .padding(horizontal = Spacing.md, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Image(painterResource(iconRes), null, Modifier.size(20.dp))
+            Image(painterResource(iconRes), null, Modifier.size(20.dp), colorFilter = AppTheme.colors.blackIconFilter)
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -290,7 +292,7 @@ fun SheetIconField(
                     lineHeight = 20.sp,
                     color = SheetTextValue,
                 ),
-                cursorBrush = SolidColor(UepBlue),
+                cursorBrush = SolidColor(AppTheme.colors.primary),
                 modifier = Modifier.weight(1f),
                 decorationBox = { inner ->
                     Box {
@@ -329,7 +331,7 @@ fun SheetIconText(
                 .padding(horizontal = Spacing.md, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Image(painterResource(iconRes), null, Modifier.size(20.dp))
+            Image(painterResource(iconRes), null, Modifier.size(20.dp), colorFilter = AppTheme.colors.blackIconFilter)
             Text(
                 text = text,
                 fontSize = 12.sp,
@@ -344,7 +346,7 @@ fun SheetIconText(
 /** 1dp hairline, black @ 10%. */
 @Composable
 fun SheetHairline(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxWidth().height(1.dp).background(Color(0x1A000000)))
+    Box(modifier = modifier.fillMaxWidth().height(1.dp).background(AppTheme.colors.hairline))
 }
 
 /** Hairline inset 16dp from both card edges, used between option rows. */
@@ -377,7 +379,7 @@ fun OptionRow(
             fontSize = 12.sp,
             lineHeight = 18.sp,
             fontWeight = FontWeight.Normal,
-            color = Color.Black,
+            color = AppTheme.colors.text,
             modifier = Modifier.weight(1f),
         )
         Text(
@@ -388,6 +390,6 @@ fun OptionRow(
             color = FigmaTextMuted,
         )
         Spacer(Modifier.width(Spacing.sm))
-        Image(painterResource(R.drawable.ic_sheet_expand15), null, Modifier.size(16.dp))
+        Image(painterResource(R.drawable.ic_sheet_expand15), null, Modifier.size(16.dp), colorFilter = AppTheme.colors.blackIconFilter)
     }
 }

@@ -3,6 +3,12 @@ package com.example.eschedule.ui.reminders
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,11 +44,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.R
 import com.example.eschedule.data.model.Reminder
 import com.example.eschedule.data.model.ReminderStatus
 import com.example.eschedule.theme.Spacing
-import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.components.FigmaSheet
 import com.example.eschedule.ui.components.FigmaTextMuted
 import com.example.eschedule.ui.components.OptionDivider
@@ -78,6 +84,7 @@ fun AddReminderSheet(
     sheetTitle: String = "Add Reminder",
 ) {
     val context = LocalContext.current
+    val pickerTheme = if (AppTheme.colors.dark) R.style.Picker_Dark else R.style.Picker_Light
 
     var title by remember { mutableStateOf(initial?.title.orEmpty()) }
     var date by remember { mutableStateOf(initial?.date ?: LocalDate.now()) }
@@ -92,13 +99,14 @@ fun AddReminderSheet(
     fun pickDate() {
         DatePickerDialog(
             context,
+            pickerTheme,
             { _, y, m, d -> date = LocalDate.of(y, m + 1, d) },
             date.year, date.monthValue - 1, date.dayOfMonth,
         ).show()
     }
 
     fun pickTime() {
-        TimePickerDialog(context, { _, h, m -> time = LocalTime.of(h, m) }, time.hour, time.minute, false).show()
+        TimePickerDialog(context, pickerTheme, { _, h, m -> time = LocalTime.of(h, m) }, time.hour, time.minute, false).show()
     }
 
     fun trySave() {
@@ -150,9 +158,14 @@ fun AddReminderSheet(
                             text = "Time",
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
-                            color = Color.Black,
+                            color = AppTheme.colors.text,
                         )
-                        if (timeEnabled) {
+                        // The time line grows / fades in and out with the switch.
+                        AnimatedVisibility(
+                            visible = timeEnabled,
+                            enter = fadeIn(tween(200)) + expandVertically(tween(220)),
+                            exit = fadeOut(tween(160)) + shrinkVertically(tween(200)),
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .clickable(
@@ -170,7 +183,7 @@ fun AddReminderSheet(
                                     color = FigmaTextMuted,
                                 )
                                 Spacer(Modifier.width(Spacing.sm))
-                                Image(painterResource(R.drawable.ic_sheet_expand10), null, Modifier.size(10.dp))
+                                Image(painterResource(R.drawable.ic_sheet_expand10), null, Modifier.size(10.dp), colorFilter = AppTheme.colors.blackIconFilter)
                             }
                         }
                     }
@@ -185,10 +198,10 @@ fun AddReminderSheet(
                         },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = UepBlue,
+                            checkedTrackColor = AppTheme.colors.primary,
                             checkedBorderColor = Color.Transparent,
                             uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color(0xFFD0D3D9),
+                            uncheckedTrackColor = AppTheme.colors.switchTrackOff,
                             uncheckedBorderColor = Color.Transparent,
                         ),
                     )
@@ -245,7 +258,7 @@ fun ViewReminderSheet(
                     .padding(top = 5.dp)
                     .width(4.dp)
                     .fillMaxHeight()
-                    .background(UepBlue, RoundedCornerShape(2.dp)),
+                    .background(AppTheme.colors.primary, RoundedCornerShape(2.dp)),
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {

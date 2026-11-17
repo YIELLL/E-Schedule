@@ -34,10 +34,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.R
 import com.example.eschedule.data.model.SchoolClass
 import com.example.eschedule.theme.Spacing
-import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.components.FigmaSheet
 import com.example.eschedule.ui.components.FigmaTextMuted
 import com.example.eschedule.ui.components.OptionDivider
@@ -61,6 +61,7 @@ import com.example.eschedule.ui.timeRange
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 
 /** Chip order + labels for the Repeat row (week starts on Sunday, as in the design). */
 private val DAY_CHIPS = listOf(
@@ -88,6 +89,7 @@ fun ClassSheet(
 ) {
     val context = LocalContext.current
     val today = remember { LocalDate.now() }
+    val pickerTheme = if (AppTheme.colors.dark) R.style.Picker_Dark else R.style.Picker_Light
 
     var title by remember { mutableStateOf(initial?.title.orEmpty()) }
     var startTime by remember { mutableStateOf(initial?.startTime ?: LocalTime.of(7, 0)) }
@@ -99,15 +101,45 @@ fun ClassSheet(
     var description by remember { mutableStateOf(initial?.description.orEmpty()) }
 
     fun pickTime(current: LocalTime, onPicked: (LocalTime) -> Unit) {
-        TimePickerDialog(context, { _, h, m -> onPicked(LocalTime.of(h, m)) }, current.hour, current.minute, false).show()
+        TimePickerDialog(context, pickerTheme, { _, h, m -> onPicked(LocalTime.of(h, m)) }, current.hour, current.minute, false).show()
     }
 
-    fun pickDate(current: LocalDate, onPicked: (LocalDate) -> Unit) {
+    fun pickDate(current: LocalDate, minDate: LocalDate? = null, onPicked: (LocalDate) -> Unit) {
         DatePickerDialog(
             context,
+            pickerTheme,
             { _, y, m, d -> onPicked(LocalDate.of(y, m + 1, d)) },
             current.year, current.monthValue - 1, current.dayOfMonth,
-        ).show()
+        ).apply {
+            // Dates before the minimum are greyed out, so an invalid range can't be picked at all.
+            minDate?.let { datePicker.minDate = it.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() }
+        }.show()
+    }
+
+    fun toast(message: String) = Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+
+    // Changing the start keeps the class at least an hour long: the end is pushed out if needed.
+    fun onStartPicked(picked: LocalTime) {
+        startTime = picked
+        val minEnd = if (picked.hour >= 23) LocalTime.of(23, 59) else picked.plusHours(1)
+        if (endTime.isBefore(minEnd)) endTime = minEnd
+    }
+
+    // The end can't be at or before the start.
+    fun onEndPicked(picked: LocalTime) {
+        if (picked.isAfter(startTime)) endTime = picked
+        else toast("End time must be after the start time")
+    }
+
+    // Changing "From" keeps "Until" at least a day later.
+    fun onFromPicked(picked: LocalDate) {
+        fromDate = picked
+        if (!untilDate.isAfter(picked)) untilDate = picked.plusDays(1)
+    }
+
+    fun onUntilPicked(picked: LocalDate) {
+        if (picked.isAfter(fromDate)) untilDate = picked
+        else toast("\"Until\" must be at least a day after \"From\"")
     }
 
     fun trySave() {
@@ -115,7 +147,7 @@ fun ClassSheet(
             title.isBlank() -> "Give the class a title"
             !endTime.isAfter(startTime) -> "The end time must be after the start time"
             days.isEmpty() -> "Pick at least one day it repeats on"
-            untilDate.isBefore(fromDate) -> "\"Until\" must be on or after \"From\""
+            !untilDate.isAfter(fromDate) -> "\"Until\" must be at least a day after \"From\""
             else -> null
         }
         if (error != null) {
@@ -150,20 +182,20 @@ fun ClassSheet(
         SheetGap(Spacing.sm)
         SheetCard {
             Column {
-                OptionRow("Starts", startTime.display()) { pickTime(startTime) { startTime = it } }
+                OptionRow("Starts", startTime.display()) { pickTime(startTime, ::onStartPicked) }
                 OptionDivider()
-                OptionRow("Ends", endTime.display()) { pickTime(endTime) { endTime = it } }
+                OptionRow("Ends", endTime.display()) { pickTime(endTime, ::onEndPicked) }
                 OptionDivider()
-                OptionRow("From", fromDate.displayLong()) { pickDate(fromDate) { fromDate = it } }
+                OptionRow("From", fromDate.displayLong()) { pickDate(fromDate, onPicked = ::onFromPicked) }
                 OptionDivider()
-                OptionRow("Until", untilDate.displayLong()) { pickDate(untilDate) { untilDate = it } }
+                OptionRow("Until", untilDate.displayLong()) { pickDate(untilDate, minDate = fromDate.plusDays(1), onPicked = ::onUntilPicked) }
                 OptionDivider()
 
                 Text(
                     text = "Repeat",
                     fontSize = 12.sp,
                     lineHeight = 18.sp,
-                    color = Color.Black,
+                    color = AppTheme.colors.text,
                     modifier = Modifier.padding(start = Spacing.md, top = 15.dp),
                 )
                 Row(
@@ -232,7 +264,7 @@ fun ViewClassSheet(
                     .padding(top = 5.dp)
                     .width(4.dp)
                     .fillMaxHeight()
-                    .background(UepBlue, RoundedCornerShape(2.dp)),
+                    .background(AppTheme.colors.primary, RoundedCornerShape(2.dp)),
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -299,7 +331,11 @@ private fun DayChip(label: String, selected: Boolean, onClick: () -> Unit) {
     ) {
         Image(
             painter = painterResource(
-                if (selected) R.drawable.ic_sheet_day_chip_on else R.drawable.ic_sheet_day_chip_off
+                if (AppTheme.colors.dark) {
+                    if (selected) R.drawable.ic_sheet_day_chip_on_dark else R.drawable.ic_sheet_day_chip_off_dark
+                } else {
+                    if (selected) R.drawable.ic_sheet_day_chip_on else R.drawable.ic_sheet_day_chip_off
+                }
             ),
             contentDescription = null,
             modifier = Modifier.size(36.dp),

@@ -8,7 +8,14 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.eschedule.EScheduleApp
 import com.example.eschedule.data.ClassRepository
+import com.example.eschedule.data.ApiKeyEntry
+import com.example.eschedule.data.AppLog
+import com.example.eschedule.data.ImportPlan
+import com.example.eschedule.data.NotificationPrefs
 import com.example.eschedule.data.ReminderRepository
+import com.example.eschedule.data.SaveCheck
+import com.example.eschedule.data.SettingsRepository
+import com.example.eschedule.data.ThemeMode
 import com.example.eschedule.data.ScannedClass
 import com.example.eschedule.data.ScheduleScanner
 import com.example.eschedule.data.minuteTicker
@@ -94,7 +101,7 @@ class ClassesViewModel(private val repository: ClassRepository) : ViewModel() {
         val monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         (0 until 7).flatMap { dayIndex ->
             val date = monday.plusDays(dayIndex.toLong())
-            classes.filter { it.meetsOn(date) }.map { cls ->
+            classes.filter { it.runsDuringWeek(monday, monday.plusDays(6)) && date.dayOfWeek in it.days }.map { cls ->
                 val start = cls.startTime.hour + cls.startTime.minute / 60f
                 val end = cls.endTime.hour + cls.endTime.minute / 60f
                 ClassBlock(
@@ -124,12 +131,21 @@ class ClassesViewModel(private val repository: ClassRepository) : ViewModel() {
         viewModelScope.launch { repository.delete(id) }
     }
 
-    /** Saves reviewed scan rows as classes; returns how many classes were created. */
-    suspend fun importScanned(items: List<ScannedClass>): Int {
-        val classes = items.toSchoolClasses(LocalDate.now())
-        repository.saveAll(classes)
-        return classes.size
+    /** Checks a class before saving: fine, an exact duplicate (refuse) or a clash (ask to replace). */
+    suspend fun check(cls: SchoolClass): SaveCheck = repository.check(cls)
+
+    /** Saves [cls] after removing the classes it replaces. */
+    fun replaceAndSave(cls: SchoolClass, replaceIds: Collection<Long>) {
+        viewModelScope.launch { repository.replaceAndSave(cls, replaceIds) }
     }
+
+    /** Works out what saving the reviewed scan rows would do, without changing anything. */
+    suspend fun planImport(items: List<ScannedClass>): ImportPlan =
+        repository.plan(items.toSchoolClasses(LocalDate.now()))
+
+    /** Applies a plan from [planImport]; returns how many classes were added. */
+    suspend fun applyImport(plan: ImportPlan, replaceConflicts: Boolean): Int =
+        repository.applyImport(plan, replaceConflicts)
 }
 
 // ─── Reminders ───────────────────────────────────────────────────────────────
@@ -203,6 +219,34 @@ class ScanViewModel(private val scanner: ScheduleScanner) : ViewModel() {
     suspend fun scan(jpeg: ByteArray): List<ScannedClass> = scanner.scan(jpeg)
 }
 
+// ─── Settings ────────────────────────────────────────────────────────────────
+
+class SettingsViewModel(
+    private val settings: SettingsRepository,
+    private val resetEverything: suspend () -> Unit,
+) : ViewModel() {
+    val notifications: StateFlow<NotificationPrefs> = settings.notifications
+    val apiKeys: StateFlow<List<ApiKeyEntry>> = settings.apiKeys
+    val activeApiKeyId: StateFlow<String?> = settings.activeApiKeyId
+    val themeMode: StateFlow<ThemeMode> = settings.themeMode
+    val logLines: StateFlow<List<String>> = AppLog.lines
+
+    fun updateNotifications(transform: (NotificationPrefs) -> NotificationPrefs) = settings.updateNotifications(transform)
+    fun saveApiKey(id: String?, label: String, value: String) = settings.saveApiKey(id, label, value)
+    fun deleteApiKey(id: String) = settings.deleteApiKey(id)
+    fun setActiveApiKey(id: String) = settings.setActiveApiKey(id)
+    fun setThemeMode(mode: ThemeMode) = settings.setThemeMode(mode)
+    fun clearLog() = AppLog.clear()
+
+    /** Deletes all data and settings; [onDone] runs once it has finished. */
+    fun resetApp(onDone: () -> Unit) {
+        viewModelScope.launch {
+            resetEverything()
+            onDone()
+        }
+    }
+}
+
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
 object AppViewModels {
@@ -213,5 +257,6 @@ object AppViewModels {
         initializer { ClassesViewModel(container().classRepository) }
         initializer { RemindersViewModel(container().reminderRepository) }
         initializer { ScanViewModel(container().scanner) }
+        initializer { container().let { c -> SettingsViewModel(c.settings) { c.resetAll() } } }
     }
 }

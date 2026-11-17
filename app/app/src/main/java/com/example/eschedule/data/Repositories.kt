@@ -8,6 +8,7 @@ import com.example.eschedule.data.model.SchoolClass
 import com.example.eschedule.data.model.toEntity
 import com.example.eschedule.data.model.toModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 
@@ -23,6 +24,33 @@ class ClassRepository(private val dao: ClassDao) {
         else dao.update(cls.toEntity()).let { cls.id }
 
     suspend fun saveAll(classes: List<SchoolClass>) = dao.insertAll(classes.map { it.toEntity() })
+
+    /** Checks [candidate] against everything saved: fine, a duplicate (refuse) or a conflict (ask). */
+    suspend fun check(candidate: SchoolClass): SaveCheck = checkAgainst(candidate, classes.first())
+
+    /** Deletes the classes in [replaceIds] and saves [cls] in their place. */
+    suspend fun replaceAndSave(cls: SchoolClass, replaceIds: Collection<Long>) {
+        replaceIds.forEach { dao.deleteById(it) }
+        save(cls)
+    }
+
+    suspend fun plan(incoming: List<SchoolClass>): ImportPlan = planImport(incoming, classes.first())
+
+    /**
+     * Applies an [ImportPlan]: the clean classes are always added; the conflicting ones are added only
+     * when [replaceConflicts] is true, in which case the classes they overlap are deleted first.
+     * Returns how many classes were added.
+     */
+    suspend fun applyImport(plan: ImportPlan, replaceConflicts: Boolean): Int {
+        val toSave = if (replaceConflicts) {
+            plan.conflicts.flatMap { it.existing }.map { it.id }.distinct().forEach { dao.deleteById(it) }
+            plan.toAdd + plan.conflicts.map { it.incoming }
+        } else {
+            plan.toAdd
+        }
+        saveAll(toSave)
+        return toSave.size
+    }
 
     suspend fun delete(id: Long) = dao.deleteById(id)
 }

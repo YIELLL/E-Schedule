@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.data.model.ReminderStatus
 import com.example.eschedule.theme.Spacing
 import com.example.eschedule.ui.ReminderFilter
@@ -50,9 +51,6 @@ import com.example.eschedule.ui.components.PageTitle
 import com.example.eschedule.ui.components.RowSide
 import com.example.eschedule.ui.components.ScreenMargin
 import com.example.eschedule.ui.components.appShadow
-
-/** Figma: completed due-dates are UEP blue @ 60%. */
-private val CompletedDueColor = Color(0x9917376E)
 
 @Composable
 fun RemindersScreen(
@@ -71,6 +69,9 @@ fun RemindersScreen(
             settled = true
         }
     }
+
+    // White @ 75% in light mode — the "washed out" layer over the completed card.
+    val fadeColor = AppTheme.colors.surface.copy(alpha = 0.75f)
 
     CompositionLocalProvider(LocalAnimateRowEnter provides settled) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -129,7 +130,7 @@ fun RemindersScreen(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .appShadow(cornerRadius = CardRadius)
-                                                .background(Color.White, RoundedCornerShape(CardRadius))
+                                                .background(AppTheme.colors.surface, RoundedCornerShape(CardRadius))
                                                 .clip(RoundedCornerShape(CardRadius))
                                                 .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
                                         ) {
@@ -170,12 +171,12 @@ fun RemindersScreen(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .appShadow(cornerRadius = CardRadius)
-                                                .background(Color.White, RoundedCornerShape(CardRadius))
+                                                .background(AppTheme.colors.surface, RoundedCornerShape(CardRadius))
                                                 .clip(RoundedCornerShape(CardRadius))
                                                 .drawWithContent {
                                                     drawContent()
                                                     drawRoundRect(
-                                                        color = Color(0xBFFFFFFF),
+                                                        color = fadeColor,
                                                         cornerRadius = CornerRadius(CardRadius.toPx()),
                                                     )
                                                 }
@@ -186,7 +187,7 @@ fun RemindersScreen(
                                                 fontSize = 12.sp,
                                                 lineHeight = 18.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color.Black,
+                                                color = AppTheme.colors.text,
                                                 modifier = Modifier.padding(start = Spacing.sm, top = Spacing.sm, bottom = Spacing.xs),
                                             )
                                             state.completed.forEach { reminder ->
@@ -198,7 +199,7 @@ fun RemindersScreen(
                                                         onCommit = { status -> onStatusChange(reminder.id, status) },
                                                         onMoreClick = { onReminderMoreClick(reminder.id) },
                                                         showMoreButton = false,
-                                                        dueColor = CompletedDueColor,
+                                                        dueColor = AppTheme.colors.title.copy(alpha = 0.6f),
                                                         minHeight = 44.dp,
                                                     )
                                                 }

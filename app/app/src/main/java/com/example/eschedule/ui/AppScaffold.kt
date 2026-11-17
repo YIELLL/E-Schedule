@@ -32,7 +32,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.eschedule.theme.AppTheme
+import com.example.eschedule.data.AppLog
+import com.example.eschedule.data.ImportPlan
+import com.example.eschedule.data.SaveCheck
 import com.example.eschedule.data.ScannedClass
+import com.example.eschedule.data.model.SchoolClass
+import com.example.eschedule.data.toDraft
+import com.example.eschedule.data.toScannedRows
+import java.time.LocalDate
 import com.example.eschedule.ui.classes.ClassSheet
 import com.example.eschedule.ui.classes.ClassesScreen
 import com.example.eschedule.ui.classes.ViewClassSheet
@@ -58,6 +66,7 @@ fun AppScaffold(
     classesVm: ClassesViewModel = viewModel(factory = AppViewModels.Factory),
     remindersVm: RemindersViewModel = viewModel(factory = AppViewModels.Factory),
     scanVm: ScanViewModel = viewModel(factory = AppViewModels.Factory),
+    settingsVm: SettingsViewModel = viewModel(factory = AppViewModels.Factory),
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -66,6 +75,11 @@ fun AppScaffold(
     val weekBlocks by classesVm.weekBlocks.collectAsStateWithLifecycle()
     val hasClasses by classesVm.hasClasses.collectAsStateWithLifecycle()
     val remindersState by remindersVm.uiState.collectAsStateWithLifecycle()
+    val notificationPrefs by settingsVm.notifications.collectAsStateWithLifecycle()
+    val apiKeys by settingsVm.apiKeys.collectAsStateWithLifecycle()
+    val activeApiKeyId by settingsVm.activeApiKeyId.collectAsStateWithLifecycle()
+    val themeMode by settingsVm.themeMode.collectAsStateWithLifecycle()
+    val logLines by settingsVm.logLines.collectAsStateWithLifecycle()
 
     var currentTab by remember { mutableStateOf<TabRoute>(TabRoute.Home) }
     var captureRequested by remember { mutableStateOf(false) }
@@ -86,11 +100,59 @@ fun AppScaffold(
     var editClassId by remember { mutableStateOf<Long?>(null) }
     var deleteClassId by remember { mutableStateOf<Long?>(null) }
 
+    // Review Scan: a scanned row opened in the same View / Edit sheets used elsewhere
+    var reviewViewId by remember { mutableStateOf<String?>(null) }
+    var reviewEditId by remember { mutableStateOf<String?>(null) }
+    val today = remember { LocalDate.now() }
+
+    // Pending decisions: a class that clashes with existing ones, and a scan import that does
+    var pendingClassSave by remember { mutableStateOf<PendingClassSave?>(null) }
+    var pendingImport by remember { mutableStateOf<ImportPlan?>(null) }
+
     fun toast(message: String) = Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+
+    /** Saves [cls] unless it duplicates or clashes with an existing class (then it refuses / asks). */
+    fun saveClass(cls: SchoolClass, onDone: () -> Unit) {
+        scope.launch {
+            when (val result = classesVm.check(cls)) {
+                SaveCheck.Ok -> {
+                    classesVm.save(cls)
+                    onDone()
+                }
+                is SaveCheck.Duplicate ->
+                    toast("\"${result.existing.title}\" is already in your schedule at that time.")
+                is SaveCheck.Conflict -> pendingClassSave = PendingClassSave(cls, result.existing, onDone)
+            }
+        }
+    }
+
+    fun finishImport(plan: ImportPlan, replaceConflicts: Boolean) {
+        scope.launch {
+            isSaving = true
+            runCatching { classesVm.applyImport(plan, replaceConflicts) }
+                .onSuccess { count ->
+                    reviewItems = null
+                    currentTab = TabRoute.Classes
+                    val skipped = plan.duplicates
+                    toast(
+                        buildString {
+                            append(if (count == 1) "Added 1 class" else "Added $count classes")
+                            if (skipped > 0) append(" \u00B7 skipped $skipped duplicate" + if (skipped == 1) "" else "s")
+                        }
+                    )
+                }
+                .onFailure {
+                    AppLog.e("Import", "Saving scanned classes failed", it)
+                    toast("Couldn't save your classes. Please try again.")
+                }
+            isSaving = false
+        }
+    }
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
-            containerColor = Color(0xFFF7F7F7),
+            containerColor = AppTheme.colors.background,
+            contentColor = AppTheme.colors.text,
             bottomBar = {
                 BottomNavBar(
                     currentTab = currentTab,
@@ -135,7 +197,10 @@ fun AppScaffold(
                                 isScanning = true
                                 runCatching { scanVm.scan(jpeg) }
                                     .onSuccess { reviewItems = it }
-                                    .onFailure { toast("Couldn't read the schedule. Please try again.") }
+                                    .onFailure {
+                                        AppLog.e("Scan", "Reading the captured schedule failed", it)
+                                        toast("Couldn't read the schedule. Please try again.")
+                                    }
                                 isScanning = false
                             }
                         },
@@ -148,7 +213,18 @@ fun AppScaffold(
                         onAddReminder = { showAddReminder = true },
                     )
                     TabRoute.Settings -> SettingsScreen(
-                        onItemClick = { /* future: navigate to sub-settings */ },
+                        notifications = notificationPrefs,
+                        onNotificationsChange = settingsVm::updateNotifications,
+                        apiKeys = apiKeys,
+                        activeApiKeyId = activeApiKeyId,
+                        onSaveApiKey = settingsVm::saveApiKey,
+                        onDeleteApiKey = settingsVm::deleteApiKey,
+                        onSetActiveApiKey = settingsVm::setActiveApiKey,
+                        themeMode = themeMode,
+                        onThemeModeChange = settingsVm::setThemeMode,
+                        logLines = logLines,
+                        onClearLog = settingsVm::clearLog,
+                        onResetApp = { settingsVm.resetApp { toast("App reset") } },
                     )
                 }
             }
@@ -172,17 +248,25 @@ fun AppScaffold(
                 onSave = {
                     scope.launch {
                         isSaving = true
-                        runCatching { classesVm.importScanned(shown) }
-                            .onSuccess { count ->
-                                reviewItems = null
-                                currentTab = TabRoute.Classes
-                                toast(if (count == 1) "Added 1 class" else "Added $count classes")
+                        runCatching { classesVm.planImport(shown) }
+                            .onSuccess { plan ->
+                                when {
+                                    plan.conflicts.isNotEmpty() -> pendingImport = plan      // ask first
+                                    plan.toAdd.isEmpty() -> {
+                                        reviewItems = null
+                                        toast("Those classes are already in your schedule.")
+                                    }
+                                    else -> finishImport(plan, replaceConflicts = false)
+                                }
                             }
-                            .onFailure { toast("Couldn't save your classes. Please try again.") }
+                            .onFailure {
+                                AppLog.e("Import", "Checking scanned classes failed", it)
+                                toast("Couldn't save your classes. Please try again.")
+                            }
                         isSaving = false
                     }
                 },
-                onRemove = { removed -> reviewItems = shown.filterNot { it.id == removed.id } },
+                onMore = { reviewViewId = it.id },
             )
         }
 
@@ -266,10 +350,7 @@ fun AppScaffold(
             sheetTitle = "Add Class",
             initial = null,
             onDismiss = { showAddClass = false },
-            onSave = {
-                classesVm.save(it)
-                showAddClass = false
-            },
+            onSave = { saveClass(it) { showAddClass = false } },
         )
     }
     viewClassId?.let { id ->
@@ -296,10 +377,7 @@ fun AppScaffold(
                     sheetTitle = "Edit Class",
                     initial = it,
                     onDismiss = { editClassId = null },
-                    onSave = { updated ->
-                        classesVm.save(updated)
-                        editClassId = null
-                    },
+                    onSave = { updated -> saveClass(updated) { editClassId = null } },
                 )
             }
         }
@@ -316,7 +394,125 @@ fun AppScaffold(
             onDismiss = { deleteClassId = null },
         )
     }
+
+    // ─── Review Scan: scanned row opened like any class ──────────────────────────
+    reviewViewId?.let { id ->
+        val row = reviewItems?.firstOrNull { it.id == id }
+        if (row != null) {
+            key(id) {
+                ViewClassSheet(
+                    cls = row.toDraft(today),
+                    onDismiss = { reviewViewId = null },
+                    onEdit = {
+                        reviewEditId = id
+                        reviewViewId = null
+                    },
+                    onDelete = {
+                        reviewItems = reviewItems?.filterNot { it.id == id }
+                        reviewViewId = null
+                    },
+                )
+            }
+        }
+    }
+    reviewEditId?.let { id ->
+        val row = reviewItems?.firstOrNull { it.id == id }
+        if (row != null) {
+            key(id) {
+                ClassSheet(
+                    sheetTitle = "Edit Class",
+                    initial = row.toDraft(today),
+                    onDismiss = { reviewEditId = null },
+                    onSave = { updated ->
+                        // A row is one weekday; the edit may now cover several.
+                        reviewItems = reviewItems?.flatMap { if (it.id == id) updated.toScannedRows() else listOf(it) }
+                        reviewEditId = null
+                    },
+                )
+            }
+        }
+    }
+
+    // ─── A class that clashes with existing ones: replace, or go back and change it ───
+    pendingClassSave?.let { pending ->
+        val plural = pending.conflicts.size > 1
+        AlertDialog(
+            onDismissRequest = { pendingClassSave = null },
+            containerColor = AppTheme.colors.surface,
+            title = { Text("Schedule conflict") },
+            text = {
+                Text(
+                    "This overlaps with:\n" +
+                        pending.conflicts.joinToString("\n") {
+                            "\u2022 ${it.title} (${shortDays(it.days)}, ${timeRange(it.startTime, it.endTime)})"
+                        } +
+                        "\n\nReplace ${if (plural) "them" else "it"} with the new class?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        classesVm.replaceAndSave(pending.cls, pending.conflicts.map { it.id })
+                        pendingClassSave = null
+                        pending.onDone()
+                    },
+                ) { Text("Replace", color = Color(0xFFD93025)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingClassSave = null }) { Text("Cancel") }
+            },
+        )
+    }
+
+    // ─── A scan whose classes clash with existing ones ────────────────────────────
+    pendingImport?.let { plan ->
+        val clashing = plan.conflicts.flatMap { it.existing }.distinctBy { it.id }
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            containerColor = AppTheme.colors.surface,
+            title = { Text("Schedule conflicts") },
+            text = {
+                Text(
+                    "${plan.conflicts.size} scanned ${if (plan.conflicts.size == 1) "class overlaps" else "classes overlap"} " +
+                        "with classes you already have:\n" +
+                        clashing.take(4).joinToString("\n") {
+                            "\u2022 ${it.title} (${shortDays(it.days)}, ${timeRange(it.startTime, it.endTime)})"
+                        } +
+                        (if (clashing.size > 4) "\n\u2022 \u2026and ${clashing.size - 4} more" else "") +
+                        "\n\nReplace the existing ones, or keep them and skip the overlapping scanned classes?"
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingImport = null
+                        finishImport(plan, replaceConflicts = true)
+                    },
+                ) { Text("Replace existing", color = Color(0xFFD93025)) }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingImport = null
+                        if (plan.toAdd.isEmpty()) {
+                            reviewItems = null
+                            toast("Nothing new to add.")
+                        } else {
+                            finishImport(plan, replaceConflicts = false)
+                        }
+                    },
+                ) { Text("Keep existing") }
+            },
+        )
+    }
 }
+
+/** A class waiting on the user's answer to "replace the classes it overlaps?". */
+private class PendingClassSave(
+    val cls: SchoolClass,
+    val conflicts: List<SchoolClass>,
+    val onDone: () -> Unit,
+)
 
 @Composable
 private fun ConfirmDeleteDialog(
@@ -327,7 +523,7 @@ private fun ConfirmDeleteDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = AppTheme.colors.surface,
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = {

@@ -41,12 +41,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.R
 import com.example.eschedule.data.ScanDay
 import com.example.eschedule.data.ScannedClass
-import com.example.eschedule.theme.AppBackground
 import com.example.eschedule.theme.Spacing
-import com.example.eschedule.theme.UepBlue
 import com.example.eschedule.ui.components.CardRadius
 import com.example.eschedule.ui.components.EmptyArt
 import com.example.eschedule.ui.components.EmptyState
@@ -68,7 +67,7 @@ fun ReviewScanScreen(
     isSaving: Boolean,
     onClose: () -> Unit,
     onSave: () -> Unit,
-    onRemove: (ScannedClass) -> Unit,
+    onMore: (ScannedClass) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val grouped = remember(items) {
@@ -81,7 +80,7 @@ fun ReviewScanScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AppBackground),
+            .background(AppTheme.colors.background),
     ) {
         // ── Header: title · close · save ─────────────────────────────────────
         Row(
@@ -96,13 +95,13 @@ fun ReviewScanScreen(
                 fontSize = 20.sp,
                 lineHeight = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = UepBlue,
+                color = AppTheme.colors.title,
                 modifier = Modifier.weight(1f),
             )
             Box(
                 modifier = Modifier
                     .size(36.dp)
-                    .background(Color(0x33000000), CircleShape)
+                    .background(AppTheme.colors.controlFill, CircleShape)
                     .clip(CircleShape)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -158,7 +157,7 @@ fun ReviewScanScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .appShadow(cornerRadius = CardRadius)
-                                .background(Color.White, RoundedCornerShape(CardRadius)),
+                                .background(AppTheme.colors.surface, RoundedCornerShape(CardRadius)),
                         ) {
                             classes.forEachIndexed { i, cls ->
                                 if (i > 0) {
@@ -167,10 +166,10 @@ fun ReviewScanScreen(
                                             .padding(horizontal = Spacing.md)
                                             .fillMaxWidth()
                                             .height(1.dp)
-                                            .background(Color(0x1A000000)),
+                                            .background(AppTheme.colors.hairline),
                                     )
                                 }
-                                ScannedClassRow(cls = cls, onRemove = { onRemove(cls) })
+                                ScannedClassRow(cls = cls, onMore = { onMore(cls) })
                             }
                         }
                     }
@@ -183,10 +182,8 @@ fun ReviewScanScreen(
 @Composable
 private fun ScannedClassRow(
     cls: ScannedClass,
-    onRemove: () -> Unit,
+    onMore: () -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -200,7 +197,7 @@ private fun ScannedClassRow(
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.Black,
+                color = AppTheme.colors.text,
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -210,39 +207,30 @@ private fun ScannedClassRow(
                 color = FigmaTextMuted,
             )
             Text(
-                text = cls.location,
+                text = cls.location.ifBlank { "No room set" },
                 fontSize = 11.sp,
                 lineHeight = 16.sp,
                 color = FigmaTextMuted,
             )
         }
-        Box {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { menuOpen = true },
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_review_more),
-                    contentDescription = "More options",
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text("Remove from scan", fontSize = 14.sp) },
-                    onClick = {
-                        menuOpen = false
-                        onRemove()
-                    },
-                )
-            }
+        // The three dots open the same details sheet used everywhere else (view / edit / delete).
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onMore,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_review_more),
+                contentDescription = "More options",
+                modifier = Modifier.size(20.dp),
+                colorFilter = AppTheme.colors.blackIconFilter,
+            )
         }
     }
 }

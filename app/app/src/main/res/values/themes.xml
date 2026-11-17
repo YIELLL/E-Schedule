@@ -2,4 +2,8 @@
 <resources>
 
     <style name="Theme.ESchedule" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Date / time picker dialogs, so they match the in-app light / dark choice. -->
+    <style name="Picker.Light" parent="android:Theme.Material.Light.Dialog.Alert" />
+    <style name="Picker.Dark" parent="android:Theme.Material.Dialog.Alert" />
 </resources>

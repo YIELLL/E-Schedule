@@ -54,7 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.example.eschedule.theme.AppBackground
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.theme.Spacing
 import com.example.eschedule.R
 import com.example.eschedule.ui.components.CardRadius
@@ -137,7 +137,7 @@ fun ScanScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AppBackground),
+            .background(AppTheme.colors.background),
     ) {
         // ── Scrollable content ────────────────────────────────────────────────
         Column(
@@ -156,7 +156,7 @@ fun ScanScreen(
                     .fillMaxWidth()
                     .aspectRatio(0.78f)
                     .appShadow(cornerRadius = CardRadius)
-                    .background(Color.White, RoundedCornerShape(CardRadius))
+                    .background(AppTheme.colors.surface, RoundedCornerShape(CardRadius))
                     .padding(Spacing.md),
             ) {
                 // Preview with a 5dp black-25% frame drawn over its edge
@@ -164,7 +164,7 @@ fun ScanScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(RoundedCornerShape(5.dp))
-                        .border(5.dp, Color(0x40000000), RoundedCornerShape(5.dp)),
+                        .border(5.dp, AppTheme.colors.placeholder, RoundedCornerShape(5.dp)),
                 ) {
                     when {
                         !hasPermission -> {
@@ -249,7 +249,7 @@ fun ScanScreen(
                     "schedule before tapping save.",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Normal,
-                color = Color(0x40000000),
+                color = AppTheme.colors.placeholder,
                 lineHeight = 16.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
@@ -306,7 +306,7 @@ private fun CameraOverlayButton(
     Box(
         modifier = Modifier
             .size(56.dp)
-            .background(Color(0x33000000), CircleShape)
+            .background(AppTheme.colors.controlFill, CircleShape)
             .clip(CircleShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

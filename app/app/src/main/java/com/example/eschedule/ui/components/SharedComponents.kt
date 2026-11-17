@@ -2,6 +2,7 @@ package com.example.eschedule.ui.components
 
 import androidx.compose.foundation.Canvas
 import kotlinx.coroutines.flow.first
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.data.model.ReminderStatus
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.text.style.TextDecoration
@@ -63,7 +64,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.eschedule.R
 import com.example.eschedule.theme.Spacing
-import com.example.eschedule.theme.UepBlue
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Figma design tokens shared by the components below.
@@ -75,10 +75,8 @@ import com.example.eschedule.theme.UepBlue
 val ScreenMargin = Spacing.screen
 
 /** Black @ 50% — secondary text colour in every frame. */
-val FigmaTextMuted = Color(0x80000000)
-
-/** Black @ 25% — unchecked checkbox border. */
-private val CheckboxBorder = Color(0x40000000)
+val FigmaTextMuted: Color
+    @Composable get() = AppTheme.colors.muted
 
 /** Card corner radius used by class cards and reminder cards. */
 val CardRadius = 12.dp
@@ -108,7 +106,7 @@ fun ClassCard(
             .fillMaxWidth()
             .heightIn(min = 72.dp)
             .appShadow(cornerRadius = CardRadius)
-            .background(Color.White, RoundedCornerShape(CardRadius))
+            .background(AppTheme.colors.surface, RoundedCornerShape(CardRadius))
             .clip(RoundedCornerShape(CardRadius))
             .then(
                 if (onClick != null) Modifier.clickable(
@@ -129,7 +127,7 @@ fun ClassCard(
                 modifier = Modifier
                     .width(4.dp)
                     .fillMaxHeight()
-                    .background(UepBlue, RoundedCornerShape(2.dp)),
+                    .background(AppTheme.colors.primary, RoundedCornerShape(2.dp)),
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -138,7 +136,7 @@ fun ClassCard(
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.Black,
+                    color = AppTheme.colors.text,
                 )
                 Text(
                     text = data.timeRange,
@@ -205,7 +203,7 @@ fun ReminderListItem(
             fontSize = 12.sp,
             lineHeight = 18.sp,
             fontWeight = FontWeight.Normal,
-            color = if (data.status == ReminderStatus.Open) Color.Black else FigmaTextMuted,
+            color = if (data.status == ReminderStatus.Open) AppTheme.colors.text else FigmaTextMuted,
             textDecoration = if (data.status == ReminderStatus.WontDo) TextDecoration.LineThrough else null,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -238,6 +236,7 @@ fun ReminderListItem(
                     painter = painterResource(R.drawable.ic_more_dots),
                     contentDescription = "More options",
                     modifier = Modifier.size(20.dp),
+                        colorFilter = AppTheme.colors.blackIconFilter,
                 )
             }
         } else {
@@ -331,17 +330,18 @@ fun FigmaCheckbox(
 ) {
     val shape = RoundedCornerShape(3.dp)
     val haptics = LocalHapticFeedback.current
+    val dashColor = AppTheme.colors.muted
 
     val fill by animateColorAsState(
-        targetValue = if (status == ReminderStatus.Done) UepBlue else Color.Transparent,
+        targetValue = if (status == ReminderStatus.Done) AppTheme.colors.primary else Color.Transparent,
         animationSpec = tween(180),
         label = "checkFill",
     )
     val border by animateColorAsState(
         targetValue = when (status) {
-            ReminderStatus.Done -> UepBlue
-            ReminderStatus.WontDo -> Color(0x73000000)
-            ReminderStatus.Open -> CheckboxBorder
+            ReminderStatus.Done -> AppTheme.colors.primary
+            ReminderStatus.WontDo -> AppTheme.colors.muted
+            ReminderStatus.Open -> AppTheme.colors.placeholder
         },
         animationSpec = tween(180),
         label = "checkBorder",
@@ -392,7 +392,7 @@ fun FigmaCheckbox(
             if (dashProgress > 0f) {
                 val cy = size.height / 2f
                 val half = size.width * 0.28f * dashProgress
-                drawLine(Color(0x99000000), Offset(size.width / 2f - half, cy), Offset(size.width / 2f + half, cy), w, StrokeCap.Round)
+                drawLine(dashColor, Offset(size.width / 2f - half, cy), Offset(size.width / 2f + half, cy), w, StrokeCap.Round)
             }
         }
     }
@@ -435,7 +435,7 @@ fun PageTitle(
         fontSize = 20.sp,
         lineHeight = 30.sp,
         fontWeight = FontWeight.Bold,
-        color = UepBlue,
+        color = AppTheme.colors.title,
         modifier = modifier
             .statusBarsPadding()
             .padding(start = ScreenMargin, end = ScreenMargin, top = Spacing.lg, bottom = bottomGap),
@@ -455,13 +455,13 @@ fun FilterChip(
     modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(25.dp)
-    val bg by animateColorAsState(if (selected) UepBlue else Color.Transparent, tween(200), label = "chipBg")
+    val bg by animateColorAsState(if (selected) AppTheme.colors.primary else Color.Transparent, tween(200), label = "chipBg")
     val fg by animateColorAsState(if (selected) Color.White else FigmaTextMuted, tween(200), label = "chipFg")
     Box(
         modifier = modifier
             .height(36.dp)
             .background(bg, shape)
-            .border(1.dp, Color(0x1A000000), shape)
+            .border(1.dp, AppTheme.colors.hairline, shape)
             .clip(shape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -491,7 +491,7 @@ fun EScheduleFab(
     modifier: Modifier = Modifier,
 ) {
     Image(
-        painter = painterResource(R.drawable.ic_fab_add),
+        painter = painterResource(if (AppTheme.colors.dark) R.drawable.ic_fab_add_dark else R.drawable.ic_fab_add),
         contentDescription = "Add",
         modifier = modifier
             .size(56.dp)

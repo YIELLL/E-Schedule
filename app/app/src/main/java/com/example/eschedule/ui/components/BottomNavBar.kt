@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.eschedule.theme.AppTheme
 import com.example.eschedule.R
 import com.example.eschedule.theme.Inter
 import com.example.eschedule.theme.NavActiveBlue
@@ -59,7 +60,6 @@ private val FabSize: Dp = 85.dp
 private val FabOverhang: Dp = 43.dp
 private val NavTabWidth: Dp = 60.dp
 
-private val PillColor = Color(0x33000000)     // black 20%
 private val InactiveTint = Color.White
 private val ActiveTint = NavActiveBlue
 
@@ -105,7 +105,7 @@ fun BottomNavBar(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .height(PillHeight)
-                .background(PillColor, RoundedCornerShape(PillRadius)),
+                .background(AppTheme.colors.navPill, RoundedCornerShape(PillRadius)),
         ) {
             val pillWidth = maxWidth
 
@@ -141,8 +141,12 @@ fun BottomNavBar(
         Image(
             // Scan tab uses the solid-yellow camera variant (Figma "Scan" frame)
             painter = painterResource(
-                if (currentTab == TabRoute.Scan) R.drawable.ic_nav_scan_fab_camera
-                else R.drawable.ic_nav_scan_fab
+                when {
+                    AppTheme.colors.dark && currentTab == TabRoute.Scan -> R.drawable.ic_nav_scan_fab_camera_dark
+                    AppTheme.colors.dark -> R.drawable.ic_nav_scan_fab_dark
+                    currentTab == TabRoute.Scan -> R.drawable.ic_nav_scan_fab_camera
+                    else -> R.drawable.ic_nav_scan_fab
+                }
             ),
             contentDescription = if (currentTab == TabRoute.Scan) "Capture" else "Scan",
             modifier = Modifier

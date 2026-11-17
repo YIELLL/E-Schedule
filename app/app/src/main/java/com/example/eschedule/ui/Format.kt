@@ -33,6 +33,10 @@ fun dateRange(start: LocalDate, end: LocalDate): String =
     if (start.year == end.year) "${start.format(shortDateFormat)} – ${end.format(shortDateYearFormat)}"
     else "${start.format(shortDateYearFormat)} – ${end.format(shortDateYearFormat)}"
 
+/** "Mon, Wed, Fri" */
+fun shortDays(days: Set<DayOfWeek>): String =
+    days.sorted().joinToString(", ") { it.getDisplayName(TextStyle.SHORT, Locale.US) }
+
 /** "Repeats every Tuesday & Thursday" / "Repeats every weekday" / "Repeats every day". */
 fun repeatsLabel(days: Set<DayOfWeek>): String {
     val weekdays = setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
