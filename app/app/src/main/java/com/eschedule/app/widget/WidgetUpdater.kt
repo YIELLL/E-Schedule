@@ -13,12 +13,8 @@ import com.eschedule.app.MainActivity
 import com.eschedule.app.R
 import com.eschedule.app.data.model.SchoolClass
 import com.eschedule.app.ui.display
-import com.eschedule.app.ui.relativeDay
-import com.eschedule.app.ui.timeRange
 import kotlinx.coroutines.flow.first
-import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale

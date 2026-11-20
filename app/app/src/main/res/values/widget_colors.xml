@@ -5,9 +5,7 @@
     <color name="widget_text">#FF000000</color>
     <color name="widget_text_soft">#BF000000</color>
     <color name="widget_muted">#80000000</color>
-    <color name="widget_hairline">#1A000000</color>
-    <!-- Brand fill (bars, highlights) and brand colour used as text -->
-    <color name="widget_accent">#FF17376E</color>
+    <!-- Brand colour used as text, and its soft tint for the current-class row -->
     <color name="widget_accent_text">#FF17376E</color>
     <color name="widget_accent_soft">#1F17376E</color>
 </resources>

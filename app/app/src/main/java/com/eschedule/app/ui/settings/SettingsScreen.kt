@@ -1,8 +1,5 @@
 package com.eschedule.app.ui.settings
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -41,7 +38,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -73,7 +69,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -93,7 +88,6 @@ import com.eschedule.app.ui.components.CardRadius
 import com.eschedule.app.ui.components.EmptyAction
 import com.eschedule.app.ui.components.EmptyArt
 import com.eschedule.app.ui.components.EmptyCard
-import com.eschedule.app.ui.components.EmptyState
 import com.eschedule.app.ui.components.FigmaTextMuted
 import com.eschedule.app.ui.components.FilterChip
 import com.eschedule.app.ui.components.PageTitle
