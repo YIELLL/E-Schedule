@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="WidgetText.Regular">
+        <item name="android:fontFamily">@font/poppins_regular</item>
+    </style>
+    <style name="WidgetText.Medium">
+        <item name="android:fontFamily">@font/poppins_medium</item>
+    </style>
+    <style name="WidgetText.SemiBold">
+        <item name="android:fontFamily">@font/poppins_semibold</item>
+    </style>
+    <style name="WidgetText.Bold">
+        <item name="android:fontFamily">@font/poppins_bold</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+</resources>

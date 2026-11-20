@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget colours in dark mode (matches DarkAppColors). Widgets follow the phone's setting, not the in-app override. -->
+<resources>
+    <color name="widget_bg">#FF1B1F27</color>
+    <color name="widget_text">#FFECEEF2</color>
+    <color name="widget_text_soft">#BFECEEF2</color>
+    <color name="widget_muted">#99ECEEF2</color>
+    <color name="widget_hairline">#1FFFFFFF</color>
+    <color name="widget_accent">#FF4C7BD0</color>
+    <color name="widget_accent_text">#FFA6C0F7</color>
+    <color name="widget_accent_soft">#334C7BD0</color>
+</resources>

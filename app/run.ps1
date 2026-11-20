@@ -1,7 +1,7 @@
 $emu  = "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe"
 $adb  = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 $avd  = "Pixel_8"
-$pkg  = "com.example.eschedule"
+$pkg  = "com.eschedule.app"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

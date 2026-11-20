@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget colours: the same palette as the app's AppColors (light). Dark values are in values-night. -->
+<resources>
+    <color name="widget_bg">#FFFFFFFF</color>
+    <color name="widget_text">#FF000000</color>
+    <color name="widget_text_soft">#BF000000</color>
+    <color name="widget_muted">#80000000</color>
+    <color name="widget_hairline">#1A000000</color>
+    <!-- Brand fill (bars, highlights) and brand colour used as text -->
+    <color name="widget_accent">#FF17376E</color>
+    <color name="widget_accent_text">#FF17376E</color>
+    <color name="widget_accent_soft">#1F17376E</color>
+</resources>

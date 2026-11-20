@@ -5,10 +5,10 @@ plugins {
 }
 
 android {
-    namespace = "com.example.eschedule"
+    namespace = "com.eschedule.app"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.example.eschedule"
+        applicationId = "com.eschedule.app"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

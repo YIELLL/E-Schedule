@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Text styles for the widgets. Poppins is applied from API 26 (values-v26); older phones use the system font. -->
+<resources>
+    <style name="WidgetText">
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+    <style name="WidgetText.Regular" />
+    <style name="WidgetText.Medium" />
+    <style name="WidgetText.SemiBold" />
+    <style name="WidgetText.Bold">
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>

@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">eSchedule</string>
+    <string name="widget_today_name">Today\'s schedule</string>
+    <string name="widget_today_description">All of today\'s classes in order.</string>
 </resources>
